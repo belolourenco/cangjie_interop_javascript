@@ -23,6 +23,6 @@ int64_t quickjs_value_kind(quickjs_value_handle *handle);
 int64_t quickjs_value_to_bool(quickjs_value_handle *handle);
 double quickjs_value_to_number(quickjs_value_handle *handle);
 const char *quickjs_value_to_string(quickjs_value_handle *handle);
-const char *quickjs_value_last_error(quickjs_value_handle *handle);
+void quickjs_bridge_free_string(const char *value);
 
 #endif

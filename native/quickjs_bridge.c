@@ -21,8 +21,6 @@ struct quickjs_runtime_handle {
 struct quickjs_value_handle {
     quickjs_runtime_handle *runtime;
     JSValue value;
-    char *last_error;
-    char *last_string;
 };
 
 static char *quickjs_bridge_copy_string(const char *message) {
@@ -50,24 +48,6 @@ static void quickjs_runtime_set_error(quickjs_runtime_handle *handle, const char
 }
 
 static void quickjs_runtime_clear_error(quickjs_runtime_handle *handle) {
-    if (handle == NULL) {
-        return;
-    }
-
-    free(handle->last_error);
-    handle->last_error = NULL;
-}
-
-static void quickjs_value_set_error(quickjs_value_handle *handle, const char *message) {
-    if (handle == NULL) {
-        return;
-    }
-
-    free(handle->last_error);
-    handle->last_error = quickjs_bridge_copy_string(message);
-}
-
-static void quickjs_value_clear_error(quickjs_value_handle *handle) {
     if (handle == NULL) {
         return;
     }
@@ -249,8 +229,6 @@ void quickjs_value_destroy(quickjs_value_handle *handle) {
         JS_FreeValue(handle->runtime->context, handle->value);
     }
 
-    free(handle->last_error);
-    free(handle->last_string);
     free(handle);
 }
 
@@ -289,10 +267,9 @@ int64_t quickjs_value_to_bool(quickjs_value_handle *handle) {
         return 0;
     }
 
-    quickjs_value_clear_error(handle);
     int value = JS_ToBool(handle->runtime->context, handle->value);
     if (value < 0) {
-        quickjs_value_set_error(handle, "failed to convert JavaScript value to boolean");
+        quickjs_runtime_set_error(handle->runtime, "failed to convert JavaScript value to boolean");
         return 0;
     }
 
@@ -304,10 +281,9 @@ double quickjs_value_to_number(quickjs_value_handle *handle) {
         return 0.0;
     }
 
-    quickjs_value_clear_error(handle);
     double value = 0.0;
     if (JS_ToFloat64(handle->runtime->context, &value, handle->value) != 0) {
-        quickjs_value_set_error(handle, "failed to convert JavaScript value to number");
+        quickjs_runtime_set_error(handle->runtime, "failed to convert JavaScript value to number");
         return 0.0;
     }
 
@@ -316,33 +292,25 @@ double quickjs_value_to_number(quickjs_value_handle *handle) {
 
 const char *quickjs_value_to_string(quickjs_value_handle *handle) {
     if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
-        return "";
+        return NULL;
     }
-
-    quickjs_value_clear_error(handle);
-    free(handle->last_string);
-    handle->last_string = NULL;
 
     const char *value = JS_ToCString(handle->runtime->context, handle->value);
     if (value == NULL) {
-        quickjs_value_set_error(handle, "failed to convert JavaScript value to string");
-        return "";
+        quickjs_runtime_set_error(handle->runtime, "failed to convert JavaScript value to string");
+        return NULL;
     }
 
-    handle->last_string = quickjs_bridge_copy_string(value);
+    char *copy = quickjs_bridge_copy_string(value);
     JS_FreeCString(handle->runtime->context, value);
-    if (handle->last_string == NULL) {
-        quickjs_value_set_error(handle, "failed to allocate JavaScript string result");
-        return "";
+    if (copy == NULL) {
+        quickjs_runtime_set_error(handle->runtime, "failed to allocate JavaScript string result");
+        return NULL;
     }
 
-    return handle->last_string;
+    return copy;
 }
 
-const char *quickjs_value_last_error(quickjs_value_handle *handle) {
-    if (handle == NULL || handle->last_error == NULL) {
-        return "";
-    }
-
-    return handle->last_error;
+void quickjs_bridge_free_string(const char *value) {
+    free((void *)value);
 }

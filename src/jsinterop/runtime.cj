@@ -17,7 +17,7 @@ foreign func quickjs_value_kind(handle: CPointer<Unit>): Int64
 foreign func quickjs_value_to_bool(handle: CPointer<Unit>): Int64
 foreign func quickjs_value_to_number(handle: CPointer<Unit>): Float64
 foreign func quickjs_value_to_string(handle: CPointer<Unit>): CString
-foreign func quickjs_value_last_error(handle: CPointer<Unit>): CString
+foreign func quickjs_bridge_free_string(value: CString): Unit
 
 public func jsInteropVersion(): String {
     "0.1.0-phase3"
@@ -61,6 +61,16 @@ func boolAsInt64(value: Bool): Int64 {
     } else {
         0
     }
+}
+
+func ownedCStringToString(value: CString): String {
+    if (value.isNull()) {
+        return ""
+    }
+
+    let result = value.toString()
+    unsafe { quickjs_bridge_free_string(value) }
+    return result
 }
 
 public class JSError {
@@ -180,7 +190,7 @@ public class JSValue <: Resource {
             throw Exception("JavaScript value is not a string")
         }
 
-        unsafe { quickjs_value_to_string(handle).toString() }
+        ownedCStringToString(unsafe { quickjs_value_to_string(handle) })
     }
 
     public func isClosed(): Bool {
