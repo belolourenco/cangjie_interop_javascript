@@ -28,13 +28,24 @@ foreign func quickjs_value_get_index(handle: CPointer<Unit>, index: Int64): CPoi
 foreign func quickjs_value_set_index(handle: CPointer<Unit>, index: Int64, value: CPointer<Unit>): Int64
 foreign func quickjs_value_key_count(handle: CPointer<Unit>): Int64
 foreign func quickjs_value_key_at(handle: CPointer<Unit>, index: Int64): CString
+foreign func quickjs_value_runtime_last_error(handle: CPointer<Unit>): CString
+foreign func quickjs_value_is_function(handle: CPointer<Unit>): Int64
+foreign func quickjs_value_call0(function: CPointer<Unit>): CPointer<Unit>
+foreign func quickjs_value_call1(function: CPointer<Unit>, arg0: CPointer<Unit>): CPointer<Unit>
+foreign func quickjs_value_call2(function: CPointer<Unit>, arg0: CPointer<Unit>, arg1: CPointer<Unit>): CPointer<Unit>
+foreign func quickjs_value_call_method0(function: CPointer<Unit>, thisValue: CPointer<Unit>): CPointer<Unit>
+foreign func quickjs_value_call_method1(function: CPointer<Unit>, thisValue: CPointer<Unit>, arg0: CPointer<Unit>): CPointer<Unit>
+foreign func quickjs_value_call_method2(function: CPointer<Unit>, thisValue: CPointer<Unit>, arg0: CPointer<Unit>, arg1: CPointer<Unit>): CPointer<Unit>
+foreign func quickjs_value_construct0(function: CPointer<Unit>): CPointer<Unit>
+foreign func quickjs_value_construct1(function: CPointer<Unit>, arg0: CPointer<Unit>): CPointer<Unit>
+foreign func quickjs_value_construct2(function: CPointer<Unit>, arg0: CPointer<Unit>, arg1: CPointer<Unit>): CPointer<Unit>
 
 public func jsInteropVersion(): String {
-    "0.1.0-phase4"
+    "0.1.0-phase5"
 }
 
 public func jsInteropSmokeTest(): String {
-    "jsinterop phase4 ok"
+    "jsinterop phase5 ok"
 }
 
 func jsValueUndefinedKind(): Int64 {
@@ -63,6 +74,10 @@ func jsValueBigIntKind(): Int64 {
 
 func jsValueObjectKind(): Int64 {
     6
+}
+
+func jsValueFunctionKind(): Int64 {
+    7
 }
 
 func boolAsInt64(value: Bool): Int64 {
@@ -179,6 +194,11 @@ public class JSValue <: Resource {
         valueKind() == jsValueObjectKind()
     }
 
+    public func isFunction(): Bool {
+        ensureOpen()
+        valueKind() == jsValueFunctionKind() || unsafe { quickjs_value_is_function(handle) != 0 }
+    }
+
     public func isArray(): Bool {
         ensureOpen()
         unsafe { quickjs_value_is_array(handle) != 0 }
@@ -202,6 +222,9 @@ public class JSValue <: Resource {
         }
         if (isBigInt()) {
             return "bigint"
+        }
+        if (isFunction()) {
+            return "function"
         }
         if (isArray()) {
             return "array"
@@ -251,6 +274,14 @@ public class JSValue <: Resource {
         }
 
         JSArray(this)
+    }
+
+    public func asFunction(): JSFunction {
+        if (!isFunction()) {
+            throw Exception("JavaScript value is not a function")
+        }
+
+        JSFunction(this)
     }
 
     public func isClosed(): Bool {
@@ -313,6 +344,10 @@ public class JSEvalResult <: Resource {
         value.isObject()
     }
 
+    public func isFunction(): Bool {
+        value.isFunction()
+    }
+
     public func isArray(): Bool {
         value.isArray()
     }
@@ -339,6 +374,14 @@ public class JSEvalResult <: Resource {
 
     public func asArray(): JSArray {
         value.asArray()
+    }
+
+    public func asFunction(): JSFunction {
+        value.asFunction()
+    }
+
+    public func asValue(): JSValue {
+        value
     }
 
     public func errorMessage(): String {
@@ -444,6 +487,76 @@ public class JSArray {
         if (status != 0) {
             throw Exception("failed to write JavaScript array index")
         }
+    }
+}
+
+public class JSFunction {
+    let value: JSValue
+
+    public init(value: JSValue) {
+        this.value = value
+    }
+
+    func runtimeError(): String {
+        unsafe { quickjs_value_runtime_last_error(value.nativeHandle()).toString() }
+    }
+
+    func valueFromCallResult(result: CPointer<Unit>): JSValue {
+        if (result.isNull()) {
+            let error = runtimeError()
+            if (error.isEmpty()) {
+                throw Exception("JavaScript function call failed")
+            }
+            throw Exception(error)
+        }
+
+        JSValue(result)
+    }
+
+    public func call(args: Array<JSValue>): JSValue {
+        value.ensureOpen()
+        if (args.size == 0) {
+            return valueFromCallResult(unsafe { quickjs_value_call0(value.nativeHandle()) })
+        }
+        if (args.size == 1) {
+            return valueFromCallResult(unsafe { quickjs_value_call1(value.nativeHandle(), args[0].nativeHandle()) })
+        }
+        if (args.size == 2) {
+            return valueFromCallResult(unsafe { quickjs_value_call2(value.nativeHandle(), args[0].nativeHandle(), args[1].nativeHandle()) })
+        }
+
+        throw Exception("JavaScript function calls support up to two arguments in Phase 5")
+    }
+
+    public func callWithThis(thisValue: JSValue, args: Array<JSValue>): JSValue {
+        value.ensureOpen()
+        thisValue.ensureOpen()
+        if (args.size == 0) {
+            return valueFromCallResult(unsafe { quickjs_value_call_method0(value.nativeHandle(), thisValue.nativeHandle()) })
+        }
+        if (args.size == 1) {
+            return valueFromCallResult(unsafe { quickjs_value_call_method1(value.nativeHandle(), thisValue.nativeHandle(), args[0].nativeHandle()) })
+        }
+        if (args.size == 2) {
+            return valueFromCallResult(unsafe { quickjs_value_call_method2(value.nativeHandle(), thisValue.nativeHandle(), args[0].nativeHandle(), args[1].nativeHandle()) })
+        }
+
+        throw Exception("JavaScript method calls support up to two arguments in Phase 5")
+    }
+
+    public func construct(args: Array<JSValue>): JSValue {
+        value.ensureOpen()
+        if (args.size == 0) {
+            return valueFromCallResult(unsafe { quickjs_value_construct0(value.nativeHandle()) })
+        }
+        if (args.size == 1) {
+            return valueFromCallResult(unsafe { quickjs_value_construct1(value.nativeHandle(), args[0].nativeHandle()) })
+        }
+        if (args.size == 2) {
+            return valueFromCallResult(unsafe { quickjs_value_construct2(value.nativeHandle(), args[0].nativeHandle(), args[1].nativeHandle()) })
+        }
+
+        throw Exception("JavaScript constructors support up to two arguments in Phase 5")
     }
 }
 

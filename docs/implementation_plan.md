@@ -266,6 +266,8 @@ Implement:
 - Calling methods with a `this` value.
 - Constructing JavaScript classes.
 
+The first implementation can support a small fixed argument count, such as zero, one, and two arguments, while keeping the public API shaped as `Array<JSValue>` so it can grow without changing callers.
+
 Deliverable: Cangjie can call a JavaScript `lookup(lat, long)` function and instantiate a JavaScript `Rectangle` class.
 
 Validation:

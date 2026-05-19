@@ -11,6 +11,7 @@
 #define QUICKJS_VALUE_STRING 4
 #define QUICKJS_VALUE_BIGINT 5
 #define QUICKJS_VALUE_OBJECT 6
+#define QUICKJS_VALUE_FUNCTION 7
 
 struct quickjs_runtime_handle {
     JSRuntime *runtime;
@@ -255,6 +256,9 @@ int64_t quickjs_value_kind(quickjs_value_handle *handle) {
     if (JS_IsBigInt(handle->runtime->context, handle->value)) {
         return QUICKJS_VALUE_BIGINT;
     }
+    if (JS_IsFunction(handle->runtime->context, handle->value)) {
+        return QUICKJS_VALUE_FUNCTION;
+    }
     if (JS_IsObject(handle->value)) {
         return QUICKJS_VALUE_OBJECT;
     }
@@ -315,12 +319,28 @@ void quickjs_bridge_free_string(const char *value) {
     free((void *)value);
 }
 
+const char *quickjs_value_runtime_last_error(quickjs_value_handle *handle) {
+    if (handle == NULL || handle->runtime == NULL) {
+        return "";
+    }
+
+    return quickjs_runtime_last_error(handle->runtime);
+}
+
 int64_t quickjs_value_is_array(quickjs_value_handle *handle) {
     if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
         return 0;
     }
 
     return JS_IsArray(handle->runtime->context, handle->value) ? 1 : 0;
+}
+
+int64_t quickjs_value_is_function(quickjs_value_handle *handle) {
+    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
+        return 0;
+    }
+
+    return JS_IsFunction(handle->runtime->context, handle->value) ? 1 : 0;
 }
 
 int64_t quickjs_value_array_length(quickjs_value_handle *handle) {
@@ -518,4 +538,119 @@ const char *quickjs_value_key_at(quickjs_value_handle *handle, int64_t index) {
     }
 
     return copy;
+}
+
+static quickjs_value_handle *quickjs_value_call_internal(
+    quickjs_value_handle *function,
+    JSValueConst this_value,
+    int argc,
+    JSValueConst *argv) {
+    if (function == NULL || function->runtime == NULL || function->runtime->context == NULL) {
+        return NULL;
+    }
+
+    quickjs_runtime_clear_error(function->runtime);
+    JSValue result = JS_Call(function->runtime->context, function->value, this_value, argc, argv);
+    if (JS_IsException(result)) {
+        JSValue exception = JS_GetException(function->runtime->context);
+        const char *message = JS_ToCString(function->runtime->context, exception);
+        quickjs_runtime_set_error(function->runtime, message);
+        JS_FreeCString(function->runtime->context, message);
+        JS_FreeValue(function->runtime->context, exception);
+        return NULL;
+    }
+
+    return quickjs_value_handle_create(function->runtime, result);
+}
+
+static quickjs_value_handle *quickjs_value_construct_internal(
+    quickjs_value_handle *constructor,
+    int argc,
+    JSValueConst *argv) {
+    if (constructor == NULL || constructor->runtime == NULL || constructor->runtime->context == NULL) {
+        return NULL;
+    }
+
+    quickjs_runtime_clear_error(constructor->runtime);
+    JSValue result = JS_CallConstructor(constructor->runtime->context, constructor->value, argc, argv);
+    if (JS_IsException(result)) {
+        JSValue exception = JS_GetException(constructor->runtime->context);
+        const char *message = JS_ToCString(constructor->runtime->context, exception);
+        quickjs_runtime_set_error(constructor->runtime, message);
+        JS_FreeCString(constructor->runtime->context, message);
+        JS_FreeValue(constructor->runtime->context, exception);
+        return NULL;
+    }
+
+    return quickjs_value_handle_create(constructor->runtime, result);
+}
+
+quickjs_value_handle *quickjs_value_call0(quickjs_value_handle *function) {
+    return quickjs_value_call_internal(function, JS_UNDEFINED, 0, NULL);
+}
+
+quickjs_value_handle *quickjs_value_call1(quickjs_value_handle *function, quickjs_value_handle *arg0) {
+    if (function == NULL || arg0 == NULL || arg0->runtime != function->runtime) {
+        return NULL;
+    }
+
+    JSValueConst argv[1] = {arg0->value};
+    return quickjs_value_call_internal(function, JS_UNDEFINED, 1, argv);
+}
+
+quickjs_value_handle *quickjs_value_call2(quickjs_value_handle *function, quickjs_value_handle *arg0, quickjs_value_handle *arg1) {
+    if (function == NULL || arg0 == NULL || arg1 == NULL || arg0->runtime != function->runtime || arg1->runtime != function->runtime) {
+        return NULL;
+    }
+
+    JSValueConst argv[2] = {arg0->value, arg1->value};
+    return quickjs_value_call_internal(function, JS_UNDEFINED, 2, argv);
+}
+
+quickjs_value_handle *quickjs_value_call_method0(quickjs_value_handle *function, quickjs_value_handle *this_value) {
+    if (function == NULL || this_value == NULL || this_value->runtime != function->runtime) {
+        return NULL;
+    }
+
+    return quickjs_value_call_internal(function, this_value->value, 0, NULL);
+}
+
+quickjs_value_handle *quickjs_value_call_method1(quickjs_value_handle *function, quickjs_value_handle *this_value, quickjs_value_handle *arg0) {
+    if (function == NULL || this_value == NULL || arg0 == NULL || this_value->runtime != function->runtime || arg0->runtime != function->runtime) {
+        return NULL;
+    }
+
+    JSValueConst argv[1] = {arg0->value};
+    return quickjs_value_call_internal(function, this_value->value, 1, argv);
+}
+
+quickjs_value_handle *quickjs_value_call_method2(quickjs_value_handle *function, quickjs_value_handle *this_value, quickjs_value_handle *arg0, quickjs_value_handle *arg1) {
+    if (function == NULL || this_value == NULL || arg0 == NULL || arg1 == NULL || this_value->runtime != function->runtime || arg0->runtime != function->runtime || arg1->runtime != function->runtime) {
+        return NULL;
+    }
+
+    JSValueConst argv[2] = {arg0->value, arg1->value};
+    return quickjs_value_call_internal(function, this_value->value, 2, argv);
+}
+
+quickjs_value_handle *quickjs_value_construct0(quickjs_value_handle *constructor) {
+    return quickjs_value_construct_internal(constructor, 0, NULL);
+}
+
+quickjs_value_handle *quickjs_value_construct1(quickjs_value_handle *constructor, quickjs_value_handle *arg0) {
+    if (constructor == NULL || arg0 == NULL || arg0->runtime != constructor->runtime) {
+        return NULL;
+    }
+
+    JSValueConst argv[1] = {arg0->value};
+    return quickjs_value_construct_internal(constructor, 1, argv);
+}
+
+quickjs_value_handle *quickjs_value_construct2(quickjs_value_handle *constructor, quickjs_value_handle *arg0, quickjs_value_handle *arg1) {
+    if (constructor == NULL || arg0 == NULL || arg1 == NULL || arg0->runtime != constructor->runtime || arg1->runtime != constructor->runtime) {
+        return NULL;
+    }
+
+    JSValueConst argv[2] = {arg0->value, arg1->value};
+    return quickjs_value_construct_internal(constructor, 2, argv);
 }

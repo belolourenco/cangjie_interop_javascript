@@ -3,12 +3,12 @@ package interop_javascript_smoke
 import interop_javascript.jsinterop.*
 
 main(): Int64 {
-    if (jsInteropVersion() != "0.1.0-phase4") {
+    if (jsInteropVersion() != "0.1.0-phase5") {
         println("unexpected jsinterop version")
         return 1
     }
 
-    if (jsInteropSmokeTest() != "jsinterop phase4 ok") {
+    if (jsInteropSmokeTest() != "jsinterop phase5 ok") {
         println("unexpected jsinterop smoke message")
         return 2
     }
@@ -252,21 +252,130 @@ main(): Int64 {
             }
         }
 
+        try (functionValue = runtime.evalScript("function add(a, b) { return a + b }; add")) {
+            if (!functionValue.isFunction() || functionValue.typeOf() != "function") {
+                println("function eval did not return a function")
+                return 32
+            }
+            let add = functionValue.asFunction()
+            try (left = JSValue.int64(runtime, 2)) {
+                try (right = JSValue.int64(runtime, 3)) {
+                    try (sum = add.call([left, right])) {
+                        if (!sum.isNumber() || sum.asFloat64() != 5.0) {
+                            println("two-argument function call failed")
+                            return 33
+                        }
+                    }
+                }
+            }
+        }
+
+        try (functionValue = runtime.evalScript("function fortyTwo() { return 42 }; fortyTwo")) {
+            let fortyTwo = functionValue.asFunction()
+            try (result = fortyTwo.call([])) {
+                if (result.asFloat64() != 42.0) {
+                    println("zero-argument function call failed")
+                    return 34
+                }
+            }
+        }
+
+        try (functionValue = runtime.evalScript("function double(x) { return x * 2 }; double")) {
+            let double = functionValue.asFunction()
+            try (value = JSValue.int64(runtime, 21)) {
+                try (result = double.call([value])) {
+                    if (result.asFloat64() != 42.0) {
+                        println("one-argument function call failed")
+                        return 35
+                    }
+                }
+            }
+        }
+
+        try (objectValue = runtime.evalScript("({ base: 10, add(n) { return this.base + n } })")) {
+            let object = objectValue.asObject()
+            try (methodValue = object.get("add")) {
+                let method = methodValue.asFunction()
+                try (arg = JSValue.int64(runtime, 5)) {
+                    try (result = method.callWithThis(objectValue.asValue(), [arg])) {
+                        if (result.asFloat64() != 15.0) {
+                            println("method call did not preserve this value")
+                            return 36
+                        }
+                    }
+                }
+            }
+        }
+
+        try (classValue = runtime.evalScript("class Rectangle { constructor(width, height) { this.width = width; this.height = height; } area() { return this.width * this.height; } }; Rectangle")) {
+            let rectangleClass = classValue.asFunction()
+            try (width = JSValue.int64(runtime, 4)) {
+                try (height = JSValue.int64(runtime, 5)) {
+                    try (instance = rectangleClass.construct([width, height])) {
+                        let rectangle = instance.asObject()
+                        try (widthValue = rectangle.get("width")) {
+                            if (widthValue.asFloat64() != 4.0) {
+                                println("constructor did not assign width")
+                                return 37
+                            }
+                        }
+                        try (areaMethodValue = rectangle.get("area")) {
+                            let areaMethod = areaMethodValue.asFunction()
+                            try (area = areaMethod.callWithThis(instance, [])) {
+                                if (area.asFloat64() != 20.0) {
+                                    println("constructed class method call failed")
+                                    return 38
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        try (throwingFunctionValue = runtime.evalScript("function fail() { throw new Error('function failed') }; fail")) {
+            let fail = throwingFunctionValue.asFunction()
+            try {
+                fail.call([])
+                println("throwing function unexpectedly succeeded")
+                return 39
+            } catch (e: Exception) {
+                if (!e.toString().contains("function failed")) {
+                    println("throwing function error message was not preserved")
+                    return 40
+                }
+            }
+        }
+
+        try (throwingConstructorValue = runtime.evalScript("class Broken { constructor() { throw new Error('constructor failed') } }; Broken")) {
+            let broken = throwingConstructorValue.asFunction()
+            try {
+                broken.construct([])
+                println("throwing constructor unexpectedly succeeded")
+                return 41
+            } catch (e: Exception) {
+                if (!e.toString().contains("constructor failed")) {
+                    println("throwing constructor error message was not preserved")
+                    return 42
+                }
+            }
+        }
+
         println("runtime eval: function {")
         try (syntaxError = runtime.evalScript("function {")) {
             println("syntaxError: ${syntaxError.isOk()} - ${syntaxError.errorMessage()}")
             if (syntaxError.isOk()) {
                 println("invalid JavaScript unexpectedly succeeded")
-                return 32
+                return 43
             }
             if (syntaxError.errorMessage().isEmpty()) {
                 println("missing JavaScript syntax error message")
-                return 33
+                return 44
             }
         }
     } catch (e: Exception) {
         println("runtime test failed: ${e.toString()}")
-        return 34
+        return 45
     }
 
     println("runtime eval: repeated runtime creation and eval 100 times")
@@ -275,7 +384,7 @@ main(): Int64 {
             try (result = runtime.evalScript("1 + 2")) {
                 if (!result.isOk() || result.asFloat64() != 3.0) {
                     println("repeated eval failed")
-                    return 35
+                    return 46
                 }
             }
         }
