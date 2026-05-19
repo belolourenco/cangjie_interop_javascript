@@ -7,37 +7,17 @@ foreign func quickjs_runtime_last_number(handle: CPointer<Unit>): Float64
 foreign func quickjs_runtime_last_error(handle: CPointer<Unit>): CString
 
 public func quickJSBackendSmokeTest(): String {
-    "quickjs backend skeleton ok"
+    "quickjs backend phase2 ok"
 }
 
-public class JSError {
-    public let message: String
-
-    public init(message: String) {
-        this.message = message
-    }
-}
-
-public class JSValue {
-    let numberValue: Float64
-
-    public init(numberValue: Float64) {
-        this.numberValue = numberValue
-    }
-
-    public func asFloat64(): Float64 {
-        numberValue
-    }
-}
-
-public class JSEvalResult {
+public class QuickJSEvalResult {
     let ok: Bool
-    let value: JSValue
-    let error: JSError
+    let numberValue: Float64
+    let error: String
 
-    public init(ok: Bool, value: JSValue, error: JSError) {
+    public init(ok: Bool, numberValue: Float64, error: String) {
         this.ok = ok
-        this.value = value
+        this.numberValue = numberValue
         this.error = error
     }
 
@@ -46,15 +26,15 @@ public class JSEvalResult {
     }
 
     public func asFloat64(): Float64 {
-        value.asFloat64()
+        numberValue
     }
 
     public func errorMessage(): String {
-        error.message
+        error
     }
 }
 
-public class JSRuntime <: Resource {
+public class QuickJSRuntime <: Resource {
     var handle: CPointer<Unit> = CPointer<Unit>()
     var closed: Bool = true
 
@@ -68,9 +48,9 @@ public class JSRuntime <: Resource {
         closed = false
     }
 
-    public func evalScript(source: String): JSEvalResult {
+    public func evalScriptNumber(source: String): QuickJSEvalResult {
         if (closed) {
-            return JSEvalResult(false, JSValue(0.0), JSError("QuickJS runtime is closed"))
+            return QuickJSEvalResult(false, 0.0, "QuickJS runtime is closed")
         }
 
         let cSource = unsafe { LibC.mallocCString(source) }
@@ -78,15 +58,11 @@ public class JSRuntime <: Resource {
         unsafe { LibC.free(cSource) }
 
         if (status == 0) {
-            return JSEvalResult(
-                true,
-                JSValue(unsafe { quickjs_runtime_last_number(handle) }),
-                JSError("")
-            )
+            return QuickJSEvalResult(true, unsafe { quickjs_runtime_last_number(handle) }, "")
         }
 
         let error = unsafe { quickjs_runtime_last_error(handle) }
-        return JSEvalResult(false, JSValue(0.0), JSError(error.toString()))
+        return QuickJSEvalResult(false, 0.0, error.toString())
     }
 
     public func isClosed(): Bool {

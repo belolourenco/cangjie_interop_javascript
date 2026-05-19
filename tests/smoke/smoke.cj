@@ -1,7 +1,6 @@
 package interop_javascript_smoke
 
 import interop_javascript.jsinterop.*
-import interop_javascript.quickjs_backend.*
 
 main(): Int64 {
     if (jsInteropVersion() != "0.1.0-phase2") {
@@ -9,7 +8,7 @@ main(): Int64 {
         return 1
     }
 
-    if (jsInteropSmokeTest() != "jsinterop skeleton ok") {
+    if (jsInteropSmokeTest() != "jsinterop phase2 ok") {
         println("unexpected jsinterop smoke message")
         return 2
     }
