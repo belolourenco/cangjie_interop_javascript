@@ -166,12 +166,33 @@ Minimal smoke test:
 
 ### Phase 2: QuickJS Native Bridge
 
+Turn the Phase 1 skeleton bridge into the first real QuickJS execution path. This phase proves that Cangjie can own a JavaScript engine instance, evaluate source text through QuickJS, and receive a minimal result or error back across the FFI boundary.
+
+Native bridge responsibilities:
+
 - Extend the skeleton `quickjs_bridge.c` and `quickjs_bridge.h`.
+- Add opaque handles for runtime/context ownership, for example `quickjs_runtime_handle`.
 - Implement runtime/context creation and cleanup in the native bridge.
-- Implement source evaluation:
-  - `evalScript(source: String): JSValue`
-  - `evalModule(source: String, path: String): JSModule`
-- Return structured error objects instead of raw engine failure codes.
+- Implement script-source evaluation for plain JavaScript source text.
+- Convert the result of simple numeric expressions into a small bridge result struct or equivalent out-parameters.
+- Capture QuickJS exceptions and expose an error status plus message text.
+- Provide explicit destroy/free functions for any native handles or allocated strings returned to Cangjie.
+
+Cangjie layer responsibilities:
+
+- Add the first `JSRuntime` wrapper in `quickjs_backend`.
+- Expose a small public evaluation API such as `evalScript(source: String): JSValue` or an equivalent result type.
+- Add a minimal `JSValue` representation that can carry only the Phase 2 result kinds.
+- Add a `JSError` representation that preserves at least the JavaScript error message.
+- Keep ownership visible: Cangjie runtime wrappers must release their native runtime/context handles.
+
+Out of scope for this phase:
+
+- File-based module loading and import resolution.
+- ES module namespace objects.
+- General object, array, function, or class interop.
+- Passing Cangjie arguments into JavaScript.
+- Full primitive conversion beyond reading the simple result needed for `"1 + 2"`.
 
 Deliverable: Cangjie can evaluate `"1 + 2"` and read `3`.
 
@@ -180,6 +201,8 @@ Validation:
 - Add a smoke test that creates and destroys a runtime repeatedly.
 - Add an evaluation test for `"1 + 2"`.
 - Add a failure test for invalid JavaScript syntax and verify the reported error message.
+- Add a cleanup test or loop that repeatedly evaluates a simple expression and releases all owned values.
+- Keep Phase 1 smoke coverage passing so the native archive and package link path remain validated.
 
 ### Phase 3: Primitive Boundary Conversion
 
