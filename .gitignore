@@ -1,0 +1,17 @@
+# Cangjie build output
+/target/
+
+# Native and smoke-test build output
+/build/
+*.o
+*.a
+*.dylib
+*.so
+*.dSYM/
+
+# macOS Finder metadata
+.DS_Store
+
+# Other system files
+.vscode
+.cursorrules

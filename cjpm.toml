@@ -1,0 +1,14 @@
+[package]
+  cjc-version = "1.0.5"
+  name = "interop_javascript"
+  description = "Cangjie library for calling JavaScript from Cangjie"
+  version = "0.1.0"
+  target-dir = ""
+  output-type = "static"
+  compile-option = ""
+  override-compile-option = ""
+  link-option = ""
+  package-configuration = {}
+
+[dependencies]
+
