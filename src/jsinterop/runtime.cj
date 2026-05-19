@@ -5,6 +5,7 @@ import std.collection.*
 foreign func quickjs_runtime_create(): CPointer<Unit>
 foreign func quickjs_runtime_destroy(handle: CPointer<Unit>): Unit
 foreign func quickjs_runtime_last_error(handle: CPointer<Unit>): CString
+foreign func quickjs_runtime_enable_std_module(handle: CPointer<Unit>): Int64
 
 foreign func quickjs_runtime_eval_value(handle: CPointer<Unit>, source: CString): CPointer<Unit>
 foreign func quickjs_runtime_new_undefined(handle: CPointer<Unit>): CPointer<Unit>
@@ -13,6 +14,7 @@ foreign func quickjs_runtime_new_bool(handle: CPointer<Unit>, value: Int64): CPo
 foreign func quickjs_runtime_new_number(handle: CPointer<Unit>, value: Float64): CPointer<Unit>
 foreign func quickjs_runtime_new_string(handle: CPointer<Unit>, value: CString): CPointer<Unit>
 foreign func quickjs_runtime_set_global_value(handle: CPointer<Unit>, name: CString, value: CPointer<Unit>): Int64
+foreign func quickjs_runtime_import_module(handle: CPointer<Unit>, path: CString): CPointer<Unit>
 
 foreign func quickjs_value_destroy(handle: CPointer<Unit>): Unit
 foreign func quickjs_value_kind(handle: CPointer<Unit>): Int64
@@ -41,11 +43,11 @@ foreign func quickjs_value_construct1(function: CPointer<Unit>, arg0: CPointer<U
 foreign func quickjs_value_construct2(function: CPointer<Unit>, arg0: CPointer<Unit>, arg1: CPointer<Unit>): CPointer<Unit>
 
 public func jsInteropVersion(): String {
-    "0.1.0-phase5"
+    "0.1.0-phase6"
 }
 
 public func jsInteropSmokeTest(): String {
-    "jsinterop phase5 ok"
+    "jsinterop phase6 ok"
 }
 
 func jsValueUndefinedKind(): Int64 {
@@ -560,11 +562,52 @@ public class JSFunction {
     }
 }
 
+public class JSModule <: Resource {
+    let namespace: JSValue
+
+    public init(namespace: JSValue) {
+        this.namespace = namespace
+    }
+
+    ~init() {
+        namespace.close()
+    }
+
+    public func get(name: String): JSValue {
+        namespace.asObject().get(name)
+    }
+
+    public func keys(): ArrayList<String> {
+        namespace.asObject().keys()
+    }
+
+    public func isClosed(): Bool {
+        namespace.isClosed()
+    }
+
+    public func close(): Unit {
+        namespace.close()
+    }
+}
+
 public class JSRuntime <: Resource {
     var handle: CPointer<Unit> = CPointer<Unit>()
     var closed: Bool = true
+    let moduleRoot: String
 
     public init() {
+        this.moduleRoot = "."
+        let created = unsafe { quickjs_runtime_create() }
+        if (created.isNull()) {
+            throw Exception("failed to create QuickJS runtime")
+        }
+
+        handle = created
+        closed = false
+    }
+
+    public init(moduleRoot: String) {
+        this.moduleRoot = moduleRoot
         let created = unsafe { quickjs_runtime_create() }
         if (created.isNull()) {
             throw Exception("failed to create QuickJS runtime")
@@ -598,6 +641,14 @@ public class JSRuntime <: Resource {
         }
 
         JSValue(valueHandle)
+    }
+
+    func resolveModulePath(path: String): String {
+        if (moduleRoot.isEmpty() || moduleRoot == ".") {
+            return path
+        }
+
+        "${moduleRoot}/${path}"
     }
 
     public func newUndefined(): JSValue {
@@ -641,6 +692,27 @@ public class JSRuntime <: Resource {
 
         let error = runtimeError()
         return JSEvalResult(false, newUndefined(), JSError(error))
+    }
+
+    public func enableStdModule(): Unit {
+        ensureOpen()
+        let status = unsafe { quickjs_runtime_enable_std_module(handle) }
+        if (status != 0) {
+            throw Exception(runtimeError())
+        }
+    }
+
+    public func importModule(path: String): JSModule {
+        ensureOpen()
+        let resolvedPath = resolveModulePath(path)
+        let cPath = unsafe { LibC.mallocCString(resolvedPath) }
+        let namespaceHandle = unsafe { quickjs_runtime_import_module(handle, cPath) }
+        unsafe { LibC.free(cPath) }
+        if (namespaceHandle.isNull()) {
+            throw Exception(runtimeError())
+        }
+
+        JSModule(JSValue(namespaceHandle))
     }
 
     public func setGlobal(name: String, value: JSValue): Unit {

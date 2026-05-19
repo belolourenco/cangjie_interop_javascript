@@ -3,17 +3,17 @@ package interop_javascript_smoke
 import interop_javascript.jsinterop.*
 
 main(): Int64 {
-    if (jsInteropVersion() != "0.1.0-phase5") {
+    if (jsInteropVersion() != "0.1.0-phase6") {
         println("unexpected jsinterop version")
         return 1
     }
 
-    if (jsInteropSmokeTest() != "jsinterop phase5 ok") {
+    if (jsInteropSmokeTest() != "jsinterop phase6 ok") {
         println("unexpected jsinterop smoke message")
         return 2
     }
 
-    try (runtime = JSRuntime()) {
+    try (runtime = JSRuntime(".")) {
         try (value = JSValue.bool(runtime, true)) {
             if (!value.isBool() || !value.asBool()) {
                 println("unexpected Cangjie bool JSValue conversion")
@@ -361,21 +361,132 @@ main(): Int64 {
             }
         }
 
+        runtime.enableStdModule()
+        runtime.enableStdModule()
+
+        try (module = runtime.importModule("examples/shape_module.js")) {
+            let keys = module.keys()
+            var sawLookup = false
+            var sawRectangle = false
+            var sawMarker = false
+            for (key in keys) {
+                if (key == "lookup") {
+                    sawLookup = true
+                }
+                if (key == "Rectangle") {
+                    sawRectangle = true
+                }
+                if (key == "moduleMarker") {
+                    sawMarker = true
+                }
+            }
+            if (!sawLookup || !sawRectangle || !sawMarker) {
+                println("module namespace missing expected exports")
+                return 43
+            }
+
+            try (lookupValue = module.get("lookup")) {
+                let lookup = lookupValue.asFunction()
+                try (lat = JSValue.float64(runtime, 47.6205)) {
+                    try (long = JSValue.float64(runtime, -122.3493)) {
+                        try (siteValue = lookup.call([lat, long])) {
+                            let site = siteValue.asObject()
+                            try (name = site.get("name")) {
+                                if (name.asString() != "Space Needle") {
+                                    println("module function returned unexpected object")
+                                    return 44
+                                }
+                            }
+                            try (coordinatesValue = site.get("coordinates")) {
+                                let coordinates = coordinatesValue.asArray()
+                                if (coordinates.length() != 2) {
+                                    println("module function returned unexpected array")
+                                    return 45
+                                }
+                                try (longitude = coordinates.get(0)) {
+                                    if (longitude.asFloat64() != -122.3493) {
+                                        println("module function returned unexpected longitude")
+                                        return 46
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            try (rectangleValue = module.get("Rectangle")) {
+                let rectangleClass = rectangleValue.asFunction()
+                try (width = JSValue.int64(runtime, 6)) {
+                    try (height = JSValue.int64(runtime, 7)) {
+                        try (instance = rectangleClass.construct([width, height])) {
+                            let rectangle = instance.asObject()
+                            try (areaValue = rectangle.get("area")) {
+                                let areaMethod = areaValue.asFunction()
+                                try (area = areaMethod.callWithThis(instance, [])) {
+                                    if (area.asFloat64() != 42.0) {
+                                        println("module class export did not work")
+                                        return 47
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            try (marker = module.get("moduleMarker")) {
+                try (cachedModule = runtime.importModule("examples/shape_module.js")) {
+                    try (cachedMarker = cachedModule.get("moduleMarker")) {
+                        if (marker.asFloat64() != cachedMarker.asFloat64()) {
+                            println("module cache did not preserve evaluated namespace")
+                            return 48
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            println("module import failed: ${e.toString()}")
+            return 49
+        }
+
+        try {
+            runtime.importModule("examples/missing_module.js")
+            println("missing module unexpectedly loaded")
+            return 50
+        } catch (e: Exception) {
+            if (!e.toString().contains("failed to read JavaScript module file")) {
+                println("missing module error message was not preserved")
+                return 51
+            }
+        }
+
+        try {
+            runtime.importModule("examples/broken_module.js")
+            println("broken module unexpectedly loaded")
+            return 52
+        } catch (e: Exception) {
+            if (e.toString().isEmpty()) {
+                println("broken module error message was not preserved")
+                return 53
+            }
+        }
+
         println("runtime eval: function {")
         try (syntaxError = runtime.evalScript("function {")) {
             println("syntaxError: ${syntaxError.isOk()} - ${syntaxError.errorMessage()}")
             if (syntaxError.isOk()) {
                 println("invalid JavaScript unexpectedly succeeded")
-                return 43
+                return 54
             }
             if (syntaxError.errorMessage().isEmpty()) {
                 println("missing JavaScript syntax error message")
-                return 44
+                return 55
             }
         }
     } catch (e: Exception) {
         println("runtime test failed: ${e.toString()}")
-        return 45
+        return 56
     }
 
     println("runtime eval: repeated runtime creation and eval 100 times")
@@ -384,7 +495,7 @@ main(): Int64 {
             try (result = runtime.evalScript("1 + 2")) {
                 if (!result.isOk() || result.asFloat64() != 3.0) {
                     println("repeated eval failed")
-                    return 46
+                    return 57
                 }
             }
         }

@@ -9,6 +9,7 @@ typedef struct quickjs_value_handle quickjs_value_handle;
 quickjs_runtime_handle *quickjs_runtime_create(void);
 void quickjs_runtime_destroy(quickjs_runtime_handle *handle);
 const char *quickjs_runtime_last_error(quickjs_runtime_handle *handle);
+int64_t quickjs_runtime_enable_std_module(quickjs_runtime_handle *handle);
 
 quickjs_value_handle *quickjs_runtime_eval_value(quickjs_runtime_handle *handle, const char *source);
 quickjs_value_handle *quickjs_runtime_new_undefined(quickjs_runtime_handle *handle);
@@ -17,6 +18,7 @@ quickjs_value_handle *quickjs_runtime_new_bool(quickjs_runtime_handle *handle, i
 quickjs_value_handle *quickjs_runtime_new_number(quickjs_runtime_handle *handle, double value);
 quickjs_value_handle *quickjs_runtime_new_string(quickjs_runtime_handle *handle, const char *value);
 int64_t quickjs_runtime_set_global_value(quickjs_runtime_handle *handle, const char *name, quickjs_value_handle *value);
+quickjs_value_handle *quickjs_runtime_import_module(quickjs_runtime_handle *handle, const char *path);
 
 void quickjs_value_destroy(quickjs_value_handle *handle);
 int64_t quickjs_value_kind(quickjs_value_handle *handle);

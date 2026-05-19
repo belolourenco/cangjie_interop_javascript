@@ -1,6 +1,8 @@
 #include "quickjs_bridge.h"
 #include "quickjs/quickjs.h"
+#include "quickjs/quickjs-libc.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -17,11 +19,19 @@ struct quickjs_runtime_handle {
     JSRuntime *runtime;
     JSContext *context;
     char *last_error;
+    struct quickjs_module_cache_entry *module_cache;
+    int std_module_enabled;
 };
 
 struct quickjs_value_handle {
     quickjs_runtime_handle *runtime;
     JSValue value;
+};
+
+struct quickjs_module_cache_entry {
+    char *path;
+    JSValue namespace_value;
+    struct quickjs_module_cache_entry *next;
 };
 
 static char *quickjs_bridge_copy_string(const char *message) {
@@ -74,6 +84,58 @@ static quickjs_value_handle *quickjs_value_handle_create(quickjs_runtime_handle 
     return handle;
 }
 
+static unsigned char *quickjs_bridge_read_file(const char *path, size_t *length) {
+    FILE *file = fopen(path, "rb");
+    if (file == NULL) {
+        return NULL;
+    }
+
+    if (fseek(file, 0, SEEK_END) != 0) {
+        fclose(file);
+        return NULL;
+    }
+
+    long file_size = ftell(file);
+    if (file_size < 0) {
+        fclose(file);
+        return NULL;
+    }
+
+    if (fseek(file, 0, SEEK_SET) != 0) {
+        fclose(file);
+        return NULL;
+    }
+
+    unsigned char *buffer = (unsigned char *)malloc((size_t)file_size + 1);
+    if (buffer == NULL) {
+        fclose(file);
+        return NULL;
+    }
+
+    size_t read_count = fread(buffer, 1, (size_t)file_size, file);
+    fclose(file);
+    if (read_count != (size_t)file_size) {
+        free(buffer);
+        return NULL;
+    }
+
+    buffer[file_size] = '\0';
+    *length = (size_t)file_size;
+    return buffer;
+}
+
+static void quickjs_runtime_capture_exception(quickjs_runtime_handle *handle) {
+    if (handle == NULL || handle->context == NULL) {
+        return;
+    }
+
+    JSValue exception = JS_GetException(handle->context);
+    const char *message = JS_ToCString(handle->context, exception);
+    quickjs_runtime_set_error(handle, message);
+    JS_FreeCString(handle->context, message);
+    JS_FreeValue(handle->context, exception);
+}
+
 quickjs_runtime_handle *quickjs_runtime_create(void) {
     quickjs_runtime_handle *handle = (quickjs_runtime_handle *)calloc(1, sizeof(quickjs_runtime_handle));
     if (handle == NULL) {
@@ -102,6 +164,15 @@ void quickjs_runtime_destroy(quickjs_runtime_handle *handle) {
     }
 
     if (handle->context != NULL) {
+        struct quickjs_module_cache_entry *entry = handle->module_cache;
+        while (entry != NULL) {
+            struct quickjs_module_cache_entry *next = entry->next;
+            JS_FreeValue(handle->context, entry->namespace_value);
+            free(entry->path);
+            free(entry);
+            entry = next;
+        }
+
         JS_FreeContext(handle->context);
     }
     if (handle->runtime != NULL) {
@@ -120,6 +191,25 @@ const char *quickjs_runtime_last_error(quickjs_runtime_handle *handle) {
     return handle->last_error;
 }
 
+int64_t quickjs_runtime_enable_std_module(quickjs_runtime_handle *handle) {
+    if (handle == NULL || handle->runtime == NULL || handle->context == NULL) {
+        return 1;
+    }
+    if (handle->std_module_enabled) {
+        return 0;
+    }
+
+    quickjs_runtime_clear_error(handle);
+    JS_SetModuleLoaderFunc2(handle->runtime, NULL, js_module_loader, js_module_check_attributes, NULL);
+    if (js_init_module_std(handle->context, "std") == NULL) {
+        quickjs_runtime_capture_exception(handle);
+        return 1;
+    }
+
+    handle->std_module_enabled = 1;
+    return 0;
+}
+
 quickjs_value_handle *quickjs_runtime_eval_value(quickjs_runtime_handle *handle, const char *source) {
     if (handle == NULL || handle->context == NULL) {
         return NULL;
@@ -133,11 +223,7 @@ quickjs_value_handle *quickjs_runtime_eval_value(quickjs_runtime_handle *handle,
 
     JSValue value = JS_Eval(handle->context, source, strlen(source), "<eval>", JS_EVAL_TYPE_GLOBAL);
     if (JS_IsException(value)) {
-        JSValue exception = JS_GetException(handle->context);
-        const char *message = JS_ToCString(handle->context, exception);
-        quickjs_runtime_set_error(handle, message);
-        JS_FreeCString(handle->context, message);
-        JS_FreeValue(handle->context, exception);
+        quickjs_runtime_capture_exception(handle);
         return NULL;
     }
 
@@ -210,15 +296,87 @@ int64_t quickjs_runtime_set_global_value(quickjs_runtime_handle *handle, const c
     int status = JS_SetPropertyStr(handle->context, global, name, JS_DupValue(handle->context, value->value));
     JS_FreeValue(handle->context, global);
     if (status < 0) {
-        JSValue exception = JS_GetException(handle->context);
-        const char *message = JS_ToCString(handle->context, exception);
-        quickjs_runtime_set_error(handle, message);
-        JS_FreeCString(handle->context, message);
-        JS_FreeValue(handle->context, exception);
+        quickjs_runtime_capture_exception(handle);
         return 1;
     }
 
     return 0;
+}
+
+quickjs_value_handle *quickjs_runtime_import_module(quickjs_runtime_handle *handle, const char *path) {
+    if (handle == NULL || handle->context == NULL) {
+        return NULL;
+    }
+    if (path == NULL) {
+        quickjs_runtime_set_error(handle, "module path must not be null");
+        return NULL;
+    }
+
+    quickjs_runtime_clear_error(handle);
+
+    for (struct quickjs_module_cache_entry *entry = handle->module_cache; entry != NULL; entry = entry->next) {
+        if (strcmp(entry->path, path) == 0) {
+            return quickjs_value_handle_create(handle, JS_DupValue(handle->context, entry->namespace_value));
+        }
+    }
+
+    size_t source_length = 0;
+    unsigned char *source = quickjs_bridge_read_file(path, &source_length);
+    if (source == NULL) {
+        quickjs_runtime_set_error(handle, "failed to read JavaScript module file");
+        return NULL;
+    }
+
+    JSValue compiled = JS_Eval(
+        handle->context,
+        (const char *)source,
+        source_length,
+        path,
+        JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+    free(source);
+    if (JS_IsException(compiled)) {
+        quickjs_runtime_capture_exception(handle);
+        return NULL;
+    }
+
+    if (JS_ResolveModule(handle->context, compiled) < 0) {
+        JS_FreeValue(handle->context, compiled);
+        quickjs_runtime_capture_exception(handle);
+        return NULL;
+    }
+
+    JSModuleDef *module = (JSModuleDef *)JS_VALUE_GET_PTR(compiled);
+    JSValue eval_result = JS_EvalFunction(handle->context, compiled);
+    if (JS_IsException(eval_result)) {
+        quickjs_runtime_capture_exception(handle);
+        return NULL;
+    }
+    JS_FreeValue(handle->context, eval_result);
+
+    JSValue namespace_value = JS_GetModuleNamespace(handle->context, module);
+    if (JS_IsException(namespace_value)) {
+        quickjs_runtime_capture_exception(handle);
+        return NULL;
+    }
+
+    struct quickjs_module_cache_entry *entry = (struct quickjs_module_cache_entry *)calloc(1, sizeof(struct quickjs_module_cache_entry));
+    if (entry == NULL) {
+        JS_FreeValue(handle->context, namespace_value);
+        quickjs_runtime_set_error(handle, "failed to allocate JavaScript module cache entry");
+        return NULL;
+    }
+    entry->path = quickjs_bridge_copy_string(path);
+    if (entry->path == NULL) {
+        free(entry);
+        JS_FreeValue(handle->context, namespace_value);
+        quickjs_runtime_set_error(handle, "failed to allocate JavaScript module path");
+        return NULL;
+    }
+    entry->namespace_value = JS_DupValue(handle->context, namespace_value);
+    entry->next = handle->module_cache;
+    handle->module_cache = entry;
+
+    return quickjs_value_handle_create(handle, namespace_value);
 }
 
 void quickjs_value_destroy(quickjs_value_handle *handle) {

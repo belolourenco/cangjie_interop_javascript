@@ -281,10 +281,13 @@ Validation:
 
 Implement file-based module loading:
 
-- Resolve module paths relative to a configured root.
-- Support simple ES module exports.
-- Cache loaded modules per runtime.
-- Provide meaningful load and syntax errors.
+- Resolve module paths relative to a runtime module root (`JSRuntime(moduleRoot)`), with `JSRuntime()` defaulting to the current working directory.
+- Load simple ES modules through `runtime.importModule(path)`.
+- Enable QuickJS's `std` module explicitly from Cangjie through `runtime.enableStdModule()` when JS modules need `import * as std from 'std'`.
+- Return a `JSModule` namespace wrapper with `get(name)` and `keys()`.
+- Support function, class, primitive, object, and array exports through the existing `JSValue` wrappers.
+- Cache evaluated module namespaces per runtime and return duplicated namespace handles on repeated imports.
+- Provide meaningful load, syntax, and evaluation errors.
 
 Deliverable: Cangjie can import `examples/shape_module.js` and call its exports.
 
