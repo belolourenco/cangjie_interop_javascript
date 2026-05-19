@@ -1,8 +1,8 @@
-package interop_javascript_smoke_primitive_types
+package interop_javascript_smoke
 
 import interop_javascript.jsinterop.*
 
-main(): Int64 {
+func runPrimitiveTypesSmoke(): Int64 {
     if (jsInteropVersion() != "0.1.0-phase7") {
         println("unexpected jsinterop version")
         return 1
@@ -169,4 +169,3 @@ main(): Int64 {
     println("primitive_types ok")
     return 0
 }
-

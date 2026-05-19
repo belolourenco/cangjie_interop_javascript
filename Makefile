@@ -20,9 +20,8 @@ NATIVE_OBJECTS := $(QUICKJS_OBJECTS) $(NATIVE_BRIDGE_OBJECT)
 NATIVE_LIB := $(NATIVE_BUILD_DIR)/libquickjs_bridge.a
 
 PACKAGE_BUILD_DIR := target/release/interop_javascript
-SMOKE_SOURCES := $(wildcard tests/smoke/*/main.cj)
-SMOKE_NAMES := $(patsubst tests/smoke/%/main.cj,%,$(SMOKE_SOURCES))
-SMOKE_BINS := $(addprefix $(SMOKE_BUILD_DIR)/,$(SMOKE_NAMES))
+SMOKE_SOURCES := tests/smoke/main.cj $(filter-out tests/smoke/main.cj,$(wildcard tests/smoke/*.cj))
+SMOKE_BIN := $(SMOKE_BUILD_DIR)/smoke
 
 COMMON_CFLAGS := -std=c11 -O2 -g -Wall -Wextra -Wno-unused-parameter
 COMMON_CFLAGS += -Wno-sign-compare -Wno-missing-field-initializers
@@ -40,13 +39,10 @@ native: $(NATIVE_LIB)
 cangjie: native
 	$(CJPM) build
 
-build: native cangjie $(SMOKE_BINS)
+build: native cangjie $(SMOKE_BIN)
 
 test: build
-	@for smoke in $(SMOKE_BINS); do \
-		echo $$smoke; \
-		$$smoke || exit $$?; \
-	done
+	$(SMOKE_BIN)
 
 clean:
 	rm -rf $(BUILD_DIR) target
@@ -64,9 +60,9 @@ $(NATIVE_BRIDGE_OBJECT): native/quickjs_bridge.c native/quickjs_bridge.h $(QUICK
 	mkdir -p $(@D)
 	$(CC) $(COMMON_CFLAGS) -Inative -c $< -o $@
 
-$(SMOKE_BUILD_DIR)/%: tests/smoke/%/main.cj $(NATIVE_LIB) cangjie
+$(SMOKE_BIN): $(SMOKE_SOURCES) $(NATIVE_LIB) cangjie
 	mkdir -p $(@D)
-	$(CJC) $< \
+	$(CJC) $(SMOKE_SOURCES) \
 		--set-runtime-rpath \
 		--import-path $(PACKAGE_BUILD_DIR) \
 		-L $(PACKAGE_BUILD_DIR) \

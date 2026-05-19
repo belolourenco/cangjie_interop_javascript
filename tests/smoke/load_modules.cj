@@ -1,8 +1,8 @@
-package interop_javascript_smoke_load_modules
+package interop_javascript_smoke
 
 import interop_javascript.jsinterop.*
 
-main(): Int64 {
+func runLoadModulesSmoke(): Int64 {
     let runtime = JSRuntime(".")
     runtime.enableStdModule()
     runtime.enableStdModule()
@@ -144,4 +144,3 @@ main(): Int64 {
     println("load_modules ok")
     return 0
 }
-

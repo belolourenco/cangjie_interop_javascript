@@ -1,8 +1,8 @@
-package interop_javascript_smoke_errors_and_lifecycle
+package interop_javascript_smoke
 
 import interop_javascript.jsinterop.*
 
-main(): Int64 {
+func runErrorsAndLifecycleSmoke(): Int64 {
     let runtime = JSRuntime(".")
 
     let throwingFunctionValue = runtime.evalScript("function fail() { throw new Error('function failed') }; fail")

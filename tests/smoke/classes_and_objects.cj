@@ -1,8 +1,8 @@
-package interop_javascript_smoke_classes_and_objects
+package interop_javascript_smoke
 
 import interop_javascript.jsinterop.*
 
-main(): Int64 {
+func runClassesAndObjectsSmoke(): Int64 {
     let runtime = JSRuntime(".")
 
     let objectResult = runtime.evalScript("({ name: 'Space Needle', active: true, coordinates: [-122.3493, 47.6205], nested: [[1, 2]] })")
@@ -160,4 +160,3 @@ main(): Int64 {
     println("classes_and_objects ok")
     return 0
 }
-

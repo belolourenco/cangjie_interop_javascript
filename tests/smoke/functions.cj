@@ -1,8 +1,8 @@
-package interop_javascript_smoke_functions
+package interop_javascript_smoke
 
 import interop_javascript.jsinterop.*
 
-main(): Int64 {
+func runFunctionsSmoke(): Int64 {
     let runtime = JSRuntime(".")
 
     let addValue = runtime.evalScript("function add(a, b) { return a + b }; add")
@@ -73,4 +73,3 @@ main(): Int64 {
     println("functions ok")
     return 0
 }
-
