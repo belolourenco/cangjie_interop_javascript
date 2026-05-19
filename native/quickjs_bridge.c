@@ -314,3 +314,208 @@ const char *quickjs_value_to_string(quickjs_value_handle *handle) {
 void quickjs_bridge_free_string(const char *value) {
     free((void *)value);
 }
+
+int64_t quickjs_value_is_array(quickjs_value_handle *handle) {
+    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
+        return 0;
+    }
+
+    return JS_IsArray(handle->runtime->context, handle->value) ? 1 : 0;
+}
+
+int64_t quickjs_value_array_length(quickjs_value_handle *handle) {
+    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
+        return -1;
+    }
+
+    JSContext *ctx = handle->runtime->context;
+    JSValue length_value = JS_GetPropertyStr(ctx, handle->value, "length");
+    if (JS_IsException(length_value)) {
+        quickjs_runtime_set_error(handle->runtime, "failed to read JavaScript array length");
+        return -1;
+    }
+
+    double length_number = 0.0;
+    if (JS_ToFloat64(ctx, &length_number, length_value) != 0) {
+        JS_FreeValue(ctx, length_value);
+        quickjs_runtime_set_error(handle->runtime, "failed to convert JavaScript array length");
+        return -1;
+    }
+
+    JS_FreeValue(ctx, length_value);
+    return (int64_t)length_number;
+}
+
+quickjs_value_handle *quickjs_value_get_property(quickjs_value_handle *handle, const char *name) {
+    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
+        return NULL;
+    }
+    if (name == NULL) {
+        quickjs_runtime_set_error(handle->runtime, "property name must not be null");
+        return NULL;
+    }
+
+    quickjs_runtime_clear_error(handle->runtime);
+    JSValue value = JS_GetPropertyStr(handle->runtime->context, handle->value, name);
+    if (JS_IsException(value)) {
+        JSValue exception = JS_GetException(handle->runtime->context);
+        const char *message = JS_ToCString(handle->runtime->context, exception);
+        quickjs_runtime_set_error(handle->runtime, message);
+        JS_FreeCString(handle->runtime->context, message);
+        JS_FreeValue(handle->runtime->context, exception);
+        return NULL;
+    }
+
+    return quickjs_value_handle_create(handle->runtime, value);
+}
+
+int64_t quickjs_value_set_property(quickjs_value_handle *handle, const char *name, quickjs_value_handle *value) {
+    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
+        return 1;
+    }
+    if (name == NULL) {
+        quickjs_runtime_set_error(handle->runtime, "property name must not be null");
+        return 1;
+    }
+    if (value == NULL || value->runtime != handle->runtime) {
+        quickjs_runtime_set_error(handle->runtime, "property value does not belong to this runtime");
+        return 1;
+    }
+
+    quickjs_runtime_clear_error(handle->runtime);
+    int status = JS_SetPropertyStr(
+        handle->runtime->context,
+        handle->value,
+        name,
+        JS_DupValue(handle->runtime->context, value->value));
+    if (status < 0) {
+        JSValue exception = JS_GetException(handle->runtime->context);
+        const char *message = JS_ToCString(handle->runtime->context, exception);
+        quickjs_runtime_set_error(handle->runtime, message);
+        JS_FreeCString(handle->runtime->context, message);
+        JS_FreeValue(handle->runtime->context, exception);
+        return 1;
+    }
+
+    return 0;
+}
+
+quickjs_value_handle *quickjs_value_get_index(quickjs_value_handle *handle, int64_t index) {
+    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
+        return NULL;
+    }
+    if (index < 0) {
+        quickjs_runtime_set_error(handle->runtime, "array index must not be negative");
+        return NULL;
+    }
+
+    quickjs_runtime_clear_error(handle->runtime);
+    JSValue value = JS_GetPropertyUint32(handle->runtime->context, handle->value, (uint32_t)index);
+    if (JS_IsException(value)) {
+        JSValue exception = JS_GetException(handle->runtime->context);
+        const char *message = JS_ToCString(handle->runtime->context, exception);
+        quickjs_runtime_set_error(handle->runtime, message);
+        JS_FreeCString(handle->runtime->context, message);
+        JS_FreeValue(handle->runtime->context, exception);
+        return NULL;
+    }
+
+    return quickjs_value_handle_create(handle->runtime, value);
+}
+
+int64_t quickjs_value_set_index(quickjs_value_handle *handle, int64_t index, quickjs_value_handle *value) {
+    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
+        return 1;
+    }
+    if (index < 0) {
+        quickjs_runtime_set_error(handle->runtime, "array index must not be negative");
+        return 1;
+    }
+    if (value == NULL || value->runtime != handle->runtime) {
+        quickjs_runtime_set_error(handle->runtime, "array value does not belong to this runtime");
+        return 1;
+    }
+
+    quickjs_runtime_clear_error(handle->runtime);
+    int status = JS_SetPropertyUint32(
+        handle->runtime->context,
+        handle->value,
+        (uint32_t)index,
+        JS_DupValue(handle->runtime->context, value->value));
+    if (status < 0) {
+        JSValue exception = JS_GetException(handle->runtime->context);
+        const char *message = JS_ToCString(handle->runtime->context, exception);
+        quickjs_runtime_set_error(handle->runtime, message);
+        JS_FreeCString(handle->runtime->context, message);
+        JS_FreeValue(handle->runtime->context, exception);
+        return 1;
+    }
+
+    return 0;
+}
+
+int64_t quickjs_value_key_count(quickjs_value_handle *handle) {
+    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
+        return -1;
+    }
+
+    JSPropertyEnum *properties = NULL;
+    uint32_t property_count = 0;
+    if (JS_GetOwnPropertyNames(
+            handle->runtime->context,
+            &properties,
+            &property_count,
+            handle->value,
+            JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) != 0) {
+        quickjs_runtime_set_error(handle->runtime, "failed to enumerate JavaScript object keys");
+        return -1;
+    }
+
+    JS_FreePropertyEnum(handle->runtime->context, properties, property_count);
+    return (int64_t)property_count;
+}
+
+const char *quickjs_value_key_at(quickjs_value_handle *handle, int64_t index) {
+    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
+        return NULL;
+    }
+    if (index < 0) {
+        quickjs_runtime_set_error(handle->runtime, "key index must not be negative");
+        return NULL;
+    }
+
+    JSPropertyEnum *properties = NULL;
+    uint32_t property_count = 0;
+    if (JS_GetOwnPropertyNames(
+            handle->runtime->context,
+            &properties,
+            &property_count,
+            handle->value,
+            JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) != 0) {
+        quickjs_runtime_set_error(handle->runtime, "failed to enumerate JavaScript object keys");
+        return NULL;
+    }
+
+    if ((uint64_t)index >= property_count) {
+        JS_FreePropertyEnum(handle->runtime->context, properties, property_count);
+        quickjs_runtime_set_error(handle->runtime, "key index is out of range");
+        return NULL;
+    }
+
+    const char *atom_string = JS_AtomToCString(handle->runtime->context, properties[index].atom);
+    if (atom_string == NULL) {
+        JS_FreePropertyEnum(handle->runtime->context, properties, property_count);
+        quickjs_runtime_set_error(handle->runtime, "failed to convert JavaScript object key");
+        return NULL;
+    }
+
+    char *copy = quickjs_bridge_copy_string(atom_string);
+    JS_FreeCString(handle->runtime->context, atom_string);
+    JS_FreePropertyEnum(handle->runtime->context, properties, property_count);
+    if (copy == NULL) {
+        quickjs_runtime_set_error(handle->runtime, "failed to allocate JavaScript object key");
+        return NULL;
+    }
+
+    return copy;
+}

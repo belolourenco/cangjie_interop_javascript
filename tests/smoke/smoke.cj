@@ -3,12 +3,12 @@ package interop_javascript_smoke
 import interop_javascript.jsinterop.*
 
 main(): Int64 {
-    if (jsInteropVersion() != "0.1.0-phase3") {
+    if (jsInteropVersion() != "0.1.0-phase4") {
         println("unexpected jsinterop version")
         return 1
     }
 
-    if (jsInteropSmokeTest() != "jsinterop phase3 ok") {
+    if (jsInteropSmokeTest() != "jsinterop phase4 ok") {
         println("unexpected jsinterop smoke message")
         return 2
     }
@@ -110,10 +110,85 @@ main(): Int64 {
             }
         }
 
-        try (objectResult = runtime.evalScript("({ name: 'handle only for now' })")) {
-            if (!objectResult.isOk() || !objectResult.isObject()) {
+        try (objectResult = runtime.evalScript("({ name: 'Space Needle', coordinates: [-122.3493, 47.6205] })")) {
+            if (!objectResult.isOk() || !objectResult.isObject() || objectResult.typeOf() != "object") {
                 println("object eval did not return a native value handle")
                 return 16
+            }
+
+            let object = objectResult.asObject()
+            try (name = object.get("name")) {
+                if (!name.isString() || name.asString() != "Space Needle") {
+                    println("unexpected object property value")
+                    return 17
+                }
+            }
+
+            try (newName = JSValue.string(runtime, "Seattle Center")) {
+                object.set("name", newName)
+            }
+            try (name = object.get("name")) {
+                if (name.asString() != "Seattle Center") {
+                    println("object property write failed")
+                    return 18
+                }
+            }
+
+            let keys = object.keys()
+            var sawName = false
+            var sawCoordinates = false
+            for (key in keys) {
+                if (key == "name") {
+                    sawName = true
+                }
+                if (key == "coordinates") {
+                    sawCoordinates = true
+                }
+            }
+            if (!sawName || !sawCoordinates) {
+                println("object keys missing expected properties")
+                return 19
+            }
+
+            try (missing = object.get("missing")) {
+                if (!missing.isUndefined()) {
+                    println("missing object property was not undefined")
+                    return 20
+                }
+            }
+
+            try (coordinatesValue = object.get("coordinates")) {
+                if (!coordinatesValue.isArray() || coordinatesValue.typeOf() != "array") {
+                    println("coordinates property was not an array")
+                    return 21
+                }
+                let coordinates = coordinatesValue.asArray()
+                if (coordinates.length() != 2) {
+                    println("unexpected array length")
+                    return 22
+                }
+                try (longitude = coordinates.get(0)) {
+                    if (longitude.asFloat64() != -122.3493) {
+                        println("unexpected array element")
+                        return 23
+                    }
+                }
+                try (updatedLongitude = JSValue.float64(runtime, -123.0)) {
+                    coordinates.set(0, updatedLongitude)
+                }
+                try (longitude = coordinates.get(0)) {
+                    if (longitude.asFloat64() != -123.0) {
+                        println("array index write failed")
+                        return 24
+                    }
+                }
+                try {
+                    coordinates.get(2)
+                    println("out-of-range array index unexpectedly succeeded")
+                    return 25
+                } catch (_) {
+                    ()
+                }
             }
         }
 
@@ -123,7 +198,7 @@ main(): Int64 {
         try (result = runtime.evalScript("fromCangjieBool")) {
             if (!result.asBool()) {
                 println("Cangjie bool global did not round trip")
-                return 17
+                return 26
             }
         }
 
@@ -133,7 +208,7 @@ main(): Int64 {
         try (result = runtime.evalScript("fromCangjieInt + 1")) {
             if (result.asFloat64() != 43.0) {
                 println("Cangjie Int64 global did not round trip")
-                return 18
+                return 27
             }
         }
 
@@ -143,7 +218,7 @@ main(): Int64 {
         try (result = runtime.evalScript("fromCangjieFloat + 0.5")) {
             if (result.asFloat64() != 2.0) {
                 println("Cangjie Float64 global did not round trip")
-                return 19
+                return 28
             }
         }
 
@@ -153,7 +228,7 @@ main(): Int64 {
         try (result = runtime.evalScript("fromCangjieString + ' js'")) {
             if (result.asString() != "hello js") {
                 println("Cangjie string global did not round trip")
-                return 20
+                return 29
             }
         }
 
@@ -163,7 +238,7 @@ main(): Int64 {
         try (result = runtime.evalScript("fromCangjieNull")) {
             if (!result.isNull()) {
                 println("Cangjie null global did not round trip")
-                return 21
+                return 30
             }
         }
 
@@ -173,7 +248,7 @@ main(): Int64 {
         try (result = runtime.evalScript("fromCangjieUndefined")) {
             if (!result.isUndefined()) {
                 println("Cangjie undefined global did not round trip")
-                return 22
+                return 31
             }
         }
 
@@ -182,16 +257,16 @@ main(): Int64 {
             println("syntaxError: ${syntaxError.isOk()} - ${syntaxError.errorMessage()}")
             if (syntaxError.isOk()) {
                 println("invalid JavaScript unexpectedly succeeded")
-                return 23
+                return 32
             }
             if (syntaxError.errorMessage().isEmpty()) {
                 println("missing JavaScript syntax error message")
-                return 24
+                return 33
             }
         }
     } catch (e: Exception) {
         println("runtime test failed: ${e.toString()}")
-        return 25
+        return 34
     }
 
     println("runtime eval: repeated runtime creation and eval 100 times")
@@ -200,7 +275,7 @@ main(): Int64 {
             try (result = runtime.evalScript("1 + 2")) {
                 if (!result.isOk() || result.asFloat64() != 3.0) {
                     println("repeated eval failed")
-                    return 26
+                    return 35
                 }
             }
         }

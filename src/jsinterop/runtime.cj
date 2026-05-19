@@ -1,5 +1,7 @@
 package interop_javascript.jsinterop
 
+import std.collection.*
+
 foreign func quickjs_runtime_create(): CPointer<Unit>
 foreign func quickjs_runtime_destroy(handle: CPointer<Unit>): Unit
 foreign func quickjs_runtime_last_error(handle: CPointer<Unit>): CString
@@ -18,13 +20,21 @@ foreign func quickjs_value_to_bool(handle: CPointer<Unit>): Int64
 foreign func quickjs_value_to_number(handle: CPointer<Unit>): Float64
 foreign func quickjs_value_to_string(handle: CPointer<Unit>): CString
 foreign func quickjs_bridge_free_string(value: CString): Unit
+foreign func quickjs_value_is_array(handle: CPointer<Unit>): Int64
+foreign func quickjs_value_array_length(handle: CPointer<Unit>): Int64
+foreign func quickjs_value_get_property(handle: CPointer<Unit>, name: CString): CPointer<Unit>
+foreign func quickjs_value_set_property(handle: CPointer<Unit>, name: CString, value: CPointer<Unit>): Int64
+foreign func quickjs_value_get_index(handle: CPointer<Unit>, index: Int64): CPointer<Unit>
+foreign func quickjs_value_set_index(handle: CPointer<Unit>, index: Int64, value: CPointer<Unit>): Int64
+foreign func quickjs_value_key_count(handle: CPointer<Unit>): Int64
+foreign func quickjs_value_key_at(handle: CPointer<Unit>, index: Int64): CString
 
 public func jsInteropVersion(): String {
-    "0.1.0-phase3"
+    "0.1.0-phase4"
 }
 
 public func jsInteropSmokeTest(): String {
-    "jsinterop phase3 ok"
+    "jsinterop phase4 ok"
 }
 
 func jsValueUndefinedKind(): Int64 {
@@ -169,6 +179,40 @@ public class JSValue <: Resource {
         valueKind() == jsValueObjectKind()
     }
 
+    public func isArray(): Bool {
+        ensureOpen()
+        unsafe { quickjs_value_is_array(handle) != 0 }
+    }
+
+    public func typeOf(): String {
+        if (isUndefined()) {
+            return "undefined"
+        }
+        if (isNull()) {
+            return "null"
+        }
+        if (isBool()) {
+            return "boolean"
+        }
+        if (isNumber()) {
+            return "number"
+        }
+        if (isString()) {
+            return "string"
+        }
+        if (isBigInt()) {
+            return "bigint"
+        }
+        if (isArray()) {
+            return "array"
+        }
+        if (isObject()) {
+            return "object"
+        }
+
+        "unknown"
+    }
+
     public func asBool(): Bool {
         if (!isBool()) {
             throw Exception("JavaScript value is not a boolean")
@@ -191,6 +235,22 @@ public class JSValue <: Resource {
         }
 
         ownedCStringToString(unsafe { quickjs_value_to_string(handle) })
+    }
+
+    public func asObject(): JSObject {
+        if (!isObject()) {
+            throw Exception("JavaScript value is not an object")
+        }
+
+        JSObject(this)
+    }
+
+    public func asArray(): JSArray {
+        if (!isArray()) {
+            throw Exception("JavaScript value is not an array")
+        }
+
+        JSArray(this)
     }
 
     public func isClosed(): Bool {
@@ -253,6 +313,14 @@ public class JSEvalResult <: Resource {
         value.isObject()
     }
 
+    public func isArray(): Bool {
+        value.isArray()
+    }
+
+    public func typeOf(): String {
+        value.typeOf()
+    }
+
     public func asBool(): Bool {
         value.asBool()
     }
@@ -265,6 +333,14 @@ public class JSEvalResult <: Resource {
         value.asString()
     }
 
+    public func asObject(): JSObject {
+        value.asObject()
+    }
+
+    public func asArray(): JSArray {
+        value.asArray()
+    }
+
     public func errorMessage(): String {
         error.message
     }
@@ -275,6 +351,99 @@ public class JSEvalResult <: Resource {
 
     public func close(): Unit {
         value.close()
+    }
+}
+
+public class JSObject {
+    let value: JSValue
+
+    public init(value: JSValue) {
+        this.value = value
+    }
+
+    public func get(name: String): JSValue {
+        value.ensureOpen()
+        let cName = unsafe { LibC.mallocCString(name) }
+        let result = unsafe { quickjs_value_get_property(value.nativeHandle(), cName) }
+        unsafe { LibC.free(cName) }
+        if (result.isNull()) {
+            throw Exception("failed to read JavaScript property")
+        }
+
+        JSValue(result)
+    }
+
+    public func set(name: String, propertyValue: JSValue): Unit {
+        value.ensureOpen()
+        let cName = unsafe { LibC.mallocCString(name) }
+        let status = unsafe { quickjs_value_set_property(value.nativeHandle(), cName, propertyValue.nativeHandle()) }
+        unsafe { LibC.free(cName) }
+        if (status != 0) {
+            throw Exception("failed to write JavaScript property")
+        }
+    }
+
+    public func keys(): ArrayList<String> {
+        value.ensureOpen()
+        let count = unsafe { quickjs_value_key_count(value.nativeHandle()) }
+        if (count < 0) {
+            throw Exception("failed to enumerate JavaScript object keys")
+        }
+
+        let result = ArrayList<String>()
+        for (index in 0..count) {
+            let key = unsafe { quickjs_value_key_at(value.nativeHandle(), index) }
+            if (key.isNull()) {
+                throw Exception("failed to read JavaScript object key")
+            }
+            result.add(ownedCStringToString(key))
+        }
+
+        result
+    }
+}
+
+public class JSArray {
+    let value: JSValue
+
+    public init(value: JSValue) {
+        this.value = value
+    }
+
+    public func length(): Int64 {
+        value.ensureOpen()
+        let length = unsafe { quickjs_value_array_length(value.nativeHandle()) }
+        if (length < 0) {
+            throw Exception("failed to read JavaScript array length")
+        }
+
+        length
+    }
+
+    public func get(index: Int64): JSValue {
+        value.ensureOpen()
+        if (index < 0 || index >= length()) {
+            throw Exception("JavaScript array index is out of range")
+        }
+
+        let result = unsafe { quickjs_value_get_index(value.nativeHandle(), index) }
+        if (result.isNull()) {
+            throw Exception("failed to read JavaScript array index")
+        }
+
+        JSValue(result)
+    }
+
+    public func set(index: Int64, element: JSValue): Unit {
+        value.ensureOpen()
+        if (index < 0) {
+            throw Exception("JavaScript array index is out of range")
+        }
+
+        let status = unsafe { quickjs_value_set_index(value.nativeHandle(), index, element.nativeHandle()) }
+        if (status != 0) {
+            throw Exception("failed to write JavaScript array index")
+        }
     }
 }
 

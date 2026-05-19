@@ -240,6 +240,8 @@ Implement:
 - `value.typeOf()`
 - `value.isObject()`
 - `value.asObject()`
+- `value.isArray()`
+- `value.asArray()`
 - `object.get(name)`
 - `object.set(name, value)`
 - `object.keys()`
@@ -376,7 +378,6 @@ Testing and validation are required after every implementation phase. A phase is
 - Should the first module format be ES modules only, CommonJS only, or both?
 - How should `undefined` and `null` be represented in Cangjie?
 - How much TypeScript declaration parsing should be included in the first typed wrapper layer?
-- Do we need a separate `JSArray` wrapper, or is `JSObject` with indexed helpers enough for the first version?
 
 ## Next Concrete Milestone
 

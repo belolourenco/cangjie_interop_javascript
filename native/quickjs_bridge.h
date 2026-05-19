@@ -25,4 +25,13 @@ double quickjs_value_to_number(quickjs_value_handle *handle);
 const char *quickjs_value_to_string(quickjs_value_handle *handle);
 void quickjs_bridge_free_string(const char *value);
 
+int64_t quickjs_value_is_array(quickjs_value_handle *handle);
+int64_t quickjs_value_array_length(quickjs_value_handle *handle);
+quickjs_value_handle *quickjs_value_get_property(quickjs_value_handle *handle, const char *name);
+int64_t quickjs_value_set_property(quickjs_value_handle *handle, const char *name, quickjs_value_handle *value);
+quickjs_value_handle *quickjs_value_get_index(quickjs_value_handle *handle, int64_t index);
+int64_t quickjs_value_set_index(quickjs_value_handle *handle, int64_t index, quickjs_value_handle *value);
+int64_t quickjs_value_key_count(quickjs_value_handle *handle);
+const char *quickjs_value_key_at(quickjs_value_handle *handle, int64_t index);
+
 #endif
