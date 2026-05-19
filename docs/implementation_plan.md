@@ -158,7 +158,7 @@ Minimal smoke test:
 
 - Compile and run a tiny Cangjie entry point that imports the library package.
 - Call one exported Cangjie skeleton function such as `jsInteropVersion()` or `jsInteropSmokeTest()`.
-- Link against the native bridge archive and call one placeholder native symbol such as `quickjs_bridge_smoke()`.
+- Link against the native bridge archive and call at least one native bridge symbol from Cangjie.
 - The native placeholder must include `native/quickjs/quickjs.h` so Phase 1 validates QuickJS header visibility.
 - The native placeholder must not create a JavaScript runtime, evaluate source text, load modules, or convert JavaScript values.
 - The smoke test should print or return a fixed success value such as `jsinterop skeleton ok`.
