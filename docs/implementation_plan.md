@@ -174,13 +174,13 @@ Native bridge responsibilities:
 - Add opaque handles for runtime/context ownership, for example `quickjs_runtime_handle`.
 - Implement runtime/context creation and cleanup in the native bridge.
 - Implement script-source evaluation for plain JavaScript source text.
-- Convert the result of simple numeric expressions into a small bridge result struct or equivalent out-parameters.
+- Convert the result of simple numeric expressions into a small bridge result shape or equivalent out-parameters.
 - Capture QuickJS exceptions and expose an error status plus message text.
 - Provide explicit destroy/free functions for any native handles or allocated strings returned to Cangjie.
 
 Cangjie layer responsibilities:
 
-- Add the first `JSRuntime` wrapper in `quickjs_backend`.
+- Add the first public `JSRuntime` wrapper in `jsinterop`, backed by a QuickJS-specific runtime adapter in `quickjs_backend`.
 - Expose a small public evaluation API such as `evalScript(source: String): JSValue` or an equivalent result type.
 - Add a minimal `JSValue` representation that can carry only the Phase 2 result kinds.
 - Add a `JSError` representation that preserves at least the JavaScript error message.
@@ -214,12 +214,14 @@ Support Cangjie arguments sent into JavaScript:
 - floating point types
 - `Null` / `Undefined` representation
 
+For this phase, the input boundary can be a narrow primitive global-binding API such as `runtime.setGlobal(name, value)`. Function calls with argument arrays are still part of Phase 5.
+
 Support JavaScript results read back by Cangjie:
 
 - boolean
 - string
 - number
-- bigint where practical
+- bigint where practical, represented as a string until a dedicated Cangjie bigint mapping is added
 - null / undefined
 
 This is data conversion at the call boundary, not JavaScript calling Cangjie.
