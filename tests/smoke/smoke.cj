@@ -3,12 +3,12 @@ package interop_javascript_smoke
 import interop_javascript.jsinterop.*
 
 main(): Int64 {
-    if (jsInteropVersion() != "0.1.0-phase6") {
+    if (jsInteropVersion() != "0.1.0-phase7") {
         println("unexpected jsinterop version")
         return 1
     }
 
-    if (jsInteropSmokeTest() != "jsinterop phase6 ok") {
+    if (jsInteropSmokeTest() != "jsinterop phase7 ok") {
         println("unexpected jsinterop smoke message")
         return 2
     }
@@ -110,7 +110,7 @@ main(): Int64 {
             }
         }
 
-        try (objectResult = runtime.evalScript("({ name: 'Space Needle', coordinates: [-122.3493, 47.6205] })")) {
+        try (objectResult = runtime.evalScript("({ name: 'Space Needle', active: true, coordinates: [-122.3493, 47.6205], nested: [[1, 2]] })")) {
             if (!objectResult.isOk() || !objectResult.isObject() || objectResult.typeOf() != "object") {
                 println("object eval did not return a native value handle")
                 return 16
@@ -132,6 +132,14 @@ main(): Int64 {
                     println("object property write failed")
                     return 18
                 }
+            }
+            if (object.getString("name") != "Seattle Center") {
+                println("object getString helper did not match low-level get")
+                return 58
+            }
+            if (!object.getBool("active")) {
+                println("object getBool helper did not match low-level get")
+                return 59
             }
 
             let keys = object.keys()
@@ -189,6 +197,33 @@ main(): Int64 {
                 } catch (_) {
                     ()
                 }
+            }
+
+            try (coordinatesValue = object.getArray("coordinates")) {
+                let coordinates = coordinatesValue.asArray()
+                if (coordinates.getFloat64(0) != -123.0) {
+                    println("object getArray or array getFloat64 helper failed")
+                    return 60
+                }
+            }
+
+            try (nestedValue = object.getArray("nested")) {
+                let nested = nestedValue.asArray()
+                try (innerValue = nested.getArray(0)) {
+                    let inner = innerValue.asArray()
+                    if (inner.getFloat64(1) != 2.0) {
+                        println("array getArray helper failed")
+                        return 61
+                    }
+                }
+            }
+
+            try {
+                object.getFloat64("name")
+                println("object getFloat64 helper unexpectedly accepted a string")
+                return 62
+            } catch (_) {
+                ()
             }
         }
 
@@ -302,6 +337,14 @@ main(): Int64 {
                             println("method call did not preserve this value")
                             return 36
                         }
+                    }
+                }
+            }
+            try (arg = JSValue.int64(runtime, 7)) {
+                try (result = object.call("add", [arg])) {
+                    if (result.asFloat64() != 17.0) {
+                        println("object call helper did not preserve this value")
+                        return 63
                     }
                 }
             }
@@ -444,6 +487,52 @@ main(): Int64 {
                         }
                     }
                 }
+            }
+
+            if (module.getFloat64("moduleMarker") <= 0.0) {
+                println("module getFloat64 helper returned unexpected marker")
+                return 64
+            }
+
+            try (lat = JSValue.float64(runtime, 47.6205)) {
+                try (long = JSValue.float64(runtime, -122.3493)) {
+                    try (siteValue = module.call("lookup", [lat, long])) {
+                        let site = siteValue.asObject()
+                        if (site.getString("name") != "Space Needle") {
+                            println("module call helper returned unexpected object")
+                            return 65
+                        }
+                        try (coordinatesValue = site.getArray("coordinates")) {
+                            let coordinates = coordinatesValue.asArray()
+                            if (coordinates.getFloat64(0) != -122.3493) {
+                                println("module call helper returned unexpected array")
+                                return 66
+                            }
+                        }
+                    }
+                }
+            }
+
+            try (width = JSValue.int64(runtime, 6)) {
+                try (height = JSValue.int64(runtime, 7)) {
+                    try (instance = module.construct("Rectangle", [width, height])) {
+                        let rectangle = instance.asObject()
+                        try (area = rectangle.call("area", [])) {
+                            if (area.asFloat64() != 42.0) {
+                                println("module construct or object call helper failed")
+                                return 67
+                            }
+                        }
+                    }
+                }
+            }
+
+            try {
+                module.call("moduleMarker", [])
+                println("module call helper unexpectedly accepted a non-function")
+                return 68
+            } catch (_) {
+                ()
             }
         } catch (e: Exception) {
             println("module import failed: ${e.toString()}")

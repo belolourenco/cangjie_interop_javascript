@@ -43,11 +43,11 @@ foreign func quickjs_value_construct1(function: CPointer<Unit>, arg0: CPointer<U
 foreign func quickjs_value_construct2(function: CPointer<Unit>, arg0: CPointer<Unit>, arg1: CPointer<Unit>): CPointer<Unit>
 
 public func jsInteropVersion(): String {
-    "0.1.0-phase6"
+    "0.1.0-phase7"
 }
 
 public func jsInteropSmokeTest(): String {
-    "jsinterop phase6 ok"
+    "jsinterop phase7 ok"
 }
 
 func jsValueUndefinedKind(): Int64 {
@@ -418,6 +418,53 @@ public class JSObject {
         JSValue(result)
     }
 
+    public func getBool(name: String): Bool {
+        let propertyValue = get(name)
+        let result = propertyValue.asBool()
+        propertyValue.close()
+        result
+    }
+
+    public func getFloat64(name: String): Float64 {
+        let propertyValue = get(name)
+        let result = propertyValue.asFloat64()
+        propertyValue.close()
+        result
+    }
+
+    public func getString(name: String): String {
+        let propertyValue = get(name)
+        let result = propertyValue.asString()
+        propertyValue.close()
+        result
+    }
+
+    public func getArray(name: String): JSValue {
+        let propertyValue = get(name)
+        if (!propertyValue.isArray()) {
+            propertyValue.close()
+            throw Exception("JavaScript property is not an array")
+        }
+
+        propertyValue
+    }
+
+    public func call(name: String, args: Array<JSValue>): JSValue {
+        let functionValue = get(name)
+        let function = functionValue.asFunction()
+        let result = function.callWithThis(value, args)
+        functionValue.close()
+        result
+    }
+
+    public func construct(name: String, args: Array<JSValue>): JSValue {
+        let constructorValue = get(name)
+        let constructor = constructorValue.asFunction()
+        let result = constructor.construct(args)
+        constructorValue.close()
+        result
+    }
+
     public func set(name: String, propertyValue: JSValue): Unit {
         value.ensureOpen()
         let cName = unsafe { LibC.mallocCString(name) }
@@ -477,6 +524,37 @@ public class JSArray {
         }
 
         JSValue(result)
+    }
+
+    public func getBool(index: Int64): Bool {
+        let element = get(index)
+        let result = element.asBool()
+        element.close()
+        result
+    }
+
+    public func getFloat64(index: Int64): Float64 {
+        let element = get(index)
+        let result = element.asFloat64()
+        element.close()
+        result
+    }
+
+    public func getString(index: Int64): String {
+        let element = get(index)
+        let result = element.asString()
+        element.close()
+        result
+    }
+
+    public func getArray(index: Int64): JSValue {
+        let element = get(index)
+        if (!element.isArray()) {
+            element.close()
+            throw Exception("JavaScript array element is not an array")
+        }
+
+        element
     }
 
     public func set(index: Int64, element: JSValue): Unit {
@@ -575,6 +653,30 @@ public class JSModule <: Resource {
 
     public func get(name: String): JSValue {
         namespace.asObject().get(name)
+    }
+
+    public func getBool(name: String): Bool {
+        namespace.asObject().getBool(name)
+    }
+
+    public func getFloat64(name: String): Float64 {
+        namespace.asObject().getFloat64(name)
+    }
+
+    public func getString(name: String): String {
+        namespace.asObject().getString(name)
+    }
+
+    public func getArray(name: String): JSValue {
+        namespace.asObject().getArray(name)
+    }
+
+    public func call(name: String, args: Array<JSValue>): JSValue {
+        namespace.asObject().call(name, args)
+    }
+
+    public func construct(name: String, args: Array<JSValue>): JSValue {
+        namespace.asObject().construct(name, args)
     }
 
     public func keys(): ArrayList<String> {
