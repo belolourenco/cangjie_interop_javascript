@@ -2,20 +2,22 @@ package interop_javascript.jsinterop
 
 foreign func quickjs_runtime_create(): CPointer<Unit>
 foreign func quickjs_runtime_destroy(handle: CPointer<Unit>): Unit
-foreign func quickjs_runtime_eval_value(handle: CPointer<Unit>, source: CString): Int64
-foreign func quickjs_runtime_set_global_value(
-    handle: CPointer<Unit>,
-    name: CString,
-    kind: Int64,
-    boolValue: Int64,
-    numberValue: Float64,
-    stringValue: CString
-): Int64
-foreign func quickjs_runtime_last_kind(handle: CPointer<Unit>): Int64
-foreign func quickjs_runtime_last_bool(handle: CPointer<Unit>): Int64
-foreign func quickjs_runtime_last_number(handle: CPointer<Unit>): Float64
-foreign func quickjs_runtime_last_string(handle: CPointer<Unit>): CString
 foreign func quickjs_runtime_last_error(handle: CPointer<Unit>): CString
+
+foreign func quickjs_runtime_eval_value(handle: CPointer<Unit>, source: CString): CPointer<Unit>
+foreign func quickjs_runtime_new_undefined(handle: CPointer<Unit>): CPointer<Unit>
+foreign func quickjs_runtime_new_null(handle: CPointer<Unit>): CPointer<Unit>
+foreign func quickjs_runtime_new_bool(handle: CPointer<Unit>, value: Int64): CPointer<Unit>
+foreign func quickjs_runtime_new_number(handle: CPointer<Unit>, value: Float64): CPointer<Unit>
+foreign func quickjs_runtime_new_string(handle: CPointer<Unit>, value: CString): CPointer<Unit>
+foreign func quickjs_runtime_set_global_value(handle: CPointer<Unit>, name: CString, value: CPointer<Unit>): Int64
+
+foreign func quickjs_value_destroy(handle: CPointer<Unit>): Unit
+foreign func quickjs_value_kind(handle: CPointer<Unit>): Int64
+foreign func quickjs_value_to_bool(handle: CPointer<Unit>): Int64
+foreign func quickjs_value_to_number(handle: CPointer<Unit>): Float64
+foreign func quickjs_value_to_string(handle: CPointer<Unit>): CString
+foreign func quickjs_value_last_error(handle: CPointer<Unit>): CString
 
 public func jsInteropVersion(): String {
     "0.1.0-phase3"
@@ -49,6 +51,10 @@ func jsValueBigIntKind(): Int64 {
     5
 }
 
+func jsValueObjectKind(): Int64 {
+    6
+}
+
 func boolAsInt64(value: Bool): Int64 {
     if (value) {
         1
@@ -65,81 +71,92 @@ public class JSError {
     }
 }
 
-public class JSValue {
-    let kind: Int64
-    let boolValue: Bool
-    let numberValue: Float64
-    let stringValue: String
+public class JSValue <: Resource {
+    var handle: CPointer<Unit>
+    var closed: Bool = false
 
-    public init(kind: Int64, boolValue: Bool, numberValue: Float64, stringValue: String) {
-        this.kind = kind
-        this.boolValue = boolValue
-        this.numberValue = numberValue
-        this.stringValue = stringValue
+    public init(handle: CPointer<Unit>) {
+        if (handle.isNull()) {
+            throw Exception("JavaScript value handle must not be null")
+        }
+
+        this.handle = handle
     }
 
-    public static func undefined(): JSValue {
-        JSValue(jsValueUndefinedKind(), false, 0.0, "")
+    ~init() {
+        if (!closed) {
+            unsafe { quickjs_value_destroy(handle) }
+            handle = CPointer<Unit>()
+            closed = true
+        }
     }
 
-    public static func null(): JSValue {
-        JSValue(jsValueNullKind(), false, 0.0, "")
+    public static func undefined(runtime: JSRuntime): JSValue {
+        runtime.newUndefined()
     }
 
-    public static func bool(value: Bool): JSValue {
-        JSValue(jsValueBoolKind(), value, 0.0, "")
+    public static func null(runtime: JSRuntime): JSValue {
+        runtime.newNull()
     }
 
-    public static func int64(value: Int64): JSValue {
-        JSValue(jsValueNumberKind(), false, Float64(value), "")
+    public static func bool(runtime: JSRuntime, value: Bool): JSValue {
+        runtime.newBool(value)
     }
 
-    public static func float64(value: Float64): JSValue {
-        JSValue(jsValueNumberKind(), false, value, "")
+    public static func int64(runtime: JSRuntime, value: Int64): JSValue {
+        runtime.newFloat64(Float64(value))
     }
 
-    public static func string(value: String): JSValue {
-        JSValue(jsValueStringKind(), false, 0.0, value)
+    public static func float64(runtime: JSRuntime, value: Float64): JSValue {
+        runtime.newFloat64(value)
+    }
+
+    public static func string(runtime: JSRuntime, value: String): JSValue {
+        runtime.newString(value)
+    }
+
+    func ensureOpen(): Unit {
+        if (closed) {
+            throw Exception("JavaScript value is closed")
+        }
+    }
+
+    func nativeHandle(): CPointer<Unit> {
+        ensureOpen()
+        handle
     }
 
     public func valueKind(): Int64 {
-        kind
-    }
-
-    public func rawBool(): Bool {
-        boolValue
-    }
-
-    public func rawFloat64(): Float64 {
-        numberValue
-    }
-
-    public func rawString(): String {
-        stringValue
+        ensureOpen()
+        unsafe { quickjs_value_kind(handle) }
     }
 
     public func isUndefined(): Bool {
-        kind == jsValueUndefinedKind()
+        valueKind() == jsValueUndefinedKind()
     }
 
     public func isNull(): Bool {
-        kind == jsValueNullKind()
+        valueKind() == jsValueNullKind()
     }
 
     public func isBool(): Bool {
-        kind == jsValueBoolKind()
+        valueKind() == jsValueBoolKind()
     }
 
     public func isNumber(): Bool {
-        kind == jsValueNumberKind()
+        valueKind() == jsValueNumberKind()
     }
 
     public func isString(): Bool {
-        kind == jsValueStringKind()
+        valueKind() == jsValueStringKind()
     }
 
     public func isBigInt(): Bool {
-        kind == jsValueBigIntKind()
+        valueKind() == jsValueBigIntKind()
+    }
+
+    public func isObject(): Bool {
+        valueKind() == jsValueObjectKind()
     }
 
     public func asBool(): Bool {
@@ -147,7 +164,7 @@ public class JSValue {
             throw Exception("JavaScript value is not a boolean")
         }
 
-        boolValue
+        unsafe { quickjs_value_to_bool(handle) != 0 }
     }
 
     public func asFloat64(): Float64 {
@@ -155,7 +172,7 @@ public class JSValue {
             throw Exception("JavaScript value is not a number")
         }
 
-        numberValue
+        unsafe { quickjs_value_to_number(handle) }
     }
 
     public func asString(): String {
@@ -163,11 +180,23 @@ public class JSValue {
             throw Exception("JavaScript value is not a string")
         }
 
-        stringValue
+        unsafe { quickjs_value_to_string(handle).toString() }
+    }
+
+    public func isClosed(): Bool {
+        closed
+    }
+
+    public func close(): Unit {
+        if (!closed) {
+            unsafe { quickjs_value_destroy(handle) }
+            handle = CPointer<Unit>()
+            closed = true
+        }
     }
 }
 
-public class JSEvalResult {
+public class JSEvalResult <: Resource {
     let ok: Bool
     let value: JSValue
     let error: JSError
@@ -176,6 +205,10 @@ public class JSEvalResult {
         this.ok = ok
         this.value = value
         this.error = error
+    }
+
+    ~init() {
+        value.close()
     }
 
     public func isOk(): Bool {
@@ -206,6 +239,10 @@ public class JSEvalResult {
         value.isBigInt()
     }
 
+    public func isObject(): Bool {
+        value.isObject()
+    }
+
     public func asBool(): Bool {
         value.asBool()
     }
@@ -220,6 +257,14 @@ public class JSEvalResult {
 
     public func errorMessage(): String {
         error.message
+    }
+
+    public func isClosed(): Bool {
+        value.isClosed()
+    }
+
+    public func close(): Unit {
+        value.close()
     }
 }
 
@@ -237,55 +282,84 @@ public class JSRuntime <: Resource {
         closed = false
     }
 
-    public func evalScript(source: String): JSEvalResult {
-        if (closed) {
-            return JSEvalResult(false, JSValue.undefined(), JSError("QuickJS runtime is closed"))
+    ~init() {
+        if (!closed) {
+            unsafe { quickjs_runtime_destroy(handle) }
+            handle = CPointer<Unit>()
+            closed = true
         }
-
-        let cSource = unsafe { LibC.mallocCString(source) }
-        let status = unsafe { quickjs_runtime_eval_value(handle, cSource) }
-        unsafe { LibC.free(cSource) }
-
-        if (status == 0) {
-            return JSEvalResult(
-                true,
-                JSValue(
-                    unsafe { quickjs_runtime_last_kind(handle) },
-                    unsafe { quickjs_runtime_last_bool(handle) != 0 },
-                    unsafe { quickjs_runtime_last_number(handle) },
-                    unsafe { quickjs_runtime_last_string(handle).toString() }
-                ),
-                JSError("")
-            )
-        }
-
-        return JSEvalResult(false, JSValue.undefined(), JSError(unsafe { quickjs_runtime_last_error(handle).toString() }))
     }
 
-    public func setGlobal(name: String, value: JSValue): Unit {
+    func ensureOpen(): Unit {
         if (closed) {
             throw Exception("QuickJS runtime is closed")
         }
+    }
+
+    func runtimeError(): String {
+        unsafe { quickjs_runtime_last_error(handle).toString() }
+    }
+
+    func valueFromHandle(valueHandle: CPointer<Unit>): JSValue {
+        if (valueHandle.isNull()) {
+            throw Exception(runtimeError())
+        }
+
+        JSValue(valueHandle)
+    }
+
+    public func newUndefined(): JSValue {
+        ensureOpen()
+        valueFromHandle(unsafe { quickjs_runtime_new_undefined(handle) })
+    }
+
+    public func newNull(): JSValue {
+        ensureOpen()
+        valueFromHandle(unsafe { quickjs_runtime_new_null(handle) })
+    }
+
+    public func newBool(value: Bool): JSValue {
+        ensureOpen()
+        valueFromHandle(unsafe { quickjs_runtime_new_bool(handle, boolAsInt64(value)) })
+    }
+
+    public func newFloat64(value: Float64): JSValue {
+        ensureOpen()
+        valueFromHandle(unsafe { quickjs_runtime_new_number(handle, value) })
+    }
+
+    public func newString(value: String): JSValue {
+        ensureOpen()
+        let cValue = unsafe { LibC.mallocCString(value) }
+        let valueHandle = unsafe { quickjs_runtime_new_string(handle, cValue) }
+        unsafe { LibC.free(cValue) }
+        valueFromHandle(valueHandle)
+    }
+
+    public func evalScript(source: String): JSEvalResult {
+        ensureOpen()
+
+        let cSource = unsafe { LibC.mallocCString(source) }
+        let valueHandle = unsafe { quickjs_runtime_eval_value(handle, cSource) }
+        unsafe { LibC.free(cSource) }
+
+        if (!valueHandle.isNull()) {
+            return JSEvalResult(true, JSValue(valueHandle), JSError(""))
+        }
+
+        let error = runtimeError()
+        return JSEvalResult(false, newUndefined(), JSError(error))
+    }
+
+    public func setGlobal(name: String, value: JSValue): Unit {
+        ensureOpen()
 
         let cName = unsafe { LibC.mallocCString(name) }
-        let cStringValue = unsafe { LibC.mallocCString(value.rawString()) }
-        let status = unsafe {
-            quickjs_runtime_set_global_value(
-                handle,
-                cName,
-                value.valueKind(),
-                boolAsInt64(value.rawBool()),
-                value.rawFloat64(),
-                cStringValue
-            )
-        }
-        unsafe {
-            LibC.free(cName)
-            LibC.free(cStringValue)
-        }
+        let status = unsafe { quickjs_runtime_set_global_value(handle, cName, value.nativeHandle()) }
+        unsafe { LibC.free(cName) }
 
         if (status != 0) {
-            throw Exception(unsafe { quickjs_runtime_last_error(handle).toString() })
+            throw Exception(runtimeError())
         }
     }
 

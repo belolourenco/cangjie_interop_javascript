@@ -10,15 +10,19 @@
 #define QUICKJS_VALUE_NUMBER 3
 #define QUICKJS_VALUE_STRING 4
 #define QUICKJS_VALUE_BIGINT 5
+#define QUICKJS_VALUE_OBJECT 6
 
 struct quickjs_runtime_handle {
     JSRuntime *runtime;
     JSContext *context;
-    int64_t last_kind;
-    int64_t last_bool;
-    double last_number;
-    char *last_string;
     char *last_error;
+};
+
+struct quickjs_value_handle {
+    quickjs_runtime_handle *runtime;
+    JSValue value;
+    char *last_error;
+    char *last_string;
 };
 
 static char *quickjs_bridge_copy_string(const char *message) {
@@ -54,34 +58,39 @@ static void quickjs_runtime_clear_error(quickjs_runtime_handle *handle) {
     handle->last_error = NULL;
 }
 
-static void quickjs_runtime_clear_value(quickjs_runtime_handle *handle) {
+static void quickjs_value_set_error(quickjs_value_handle *handle, const char *message) {
     if (handle == NULL) {
         return;
     }
 
-    handle->last_kind = QUICKJS_VALUE_UNDEFINED;
-    handle->last_bool = 0;
-    handle->last_number = 0.0;
-    free(handle->last_string);
-    handle->last_string = NULL;
+    free(handle->last_error);
+    handle->last_error = quickjs_bridge_copy_string(message);
 }
 
-static int64_t quickjs_runtime_store_string_value(quickjs_runtime_handle *handle, int64_t kind, JSValueConst value) {
-    const char *string_value = JS_ToCString(handle->context, value);
-    if (string_value == NULL) {
-        quickjs_runtime_set_error(handle, "failed to convert JavaScript value to string");
-        return 1;
+static void quickjs_value_clear_error(quickjs_value_handle *handle) {
+    if (handle == NULL) {
+        return;
     }
 
-    handle->last_string = quickjs_bridge_copy_string(string_value);
-    JS_FreeCString(handle->context, string_value);
-    if (handle->last_string == NULL) {
-        quickjs_runtime_set_error(handle, "failed to allocate JavaScript string result");
-        return 1;
+    free(handle->last_error);
+    handle->last_error = NULL;
+}
+
+static quickjs_value_handle *quickjs_value_handle_create(quickjs_runtime_handle *runtime, JSValue value) {
+    if (runtime == NULL || runtime->context == NULL) {
+        return NULL;
     }
 
-    handle->last_kind = kind;
-    return 0;
+    quickjs_value_handle *handle = (quickjs_value_handle *)calloc(1, sizeof(quickjs_value_handle));
+    if (handle == NULL) {
+        JS_FreeValue(runtime->context, value);
+        quickjs_runtime_set_error(runtime, "failed to allocate JavaScript value handle");
+        return NULL;
+    }
+
+    handle->runtime = runtime;
+    handle->value = value;
+    return handle;
 }
 
 quickjs_runtime_handle *quickjs_runtime_create(void) {
@@ -119,21 +128,27 @@ void quickjs_runtime_destroy(quickjs_runtime_handle *handle) {
     }
 
     free(handle->last_error);
-    free(handle->last_string);
     free(handle);
 }
 
-int64_t quickjs_runtime_eval_value(quickjs_runtime_handle *handle, const char *source) {
+const char *quickjs_runtime_last_error(quickjs_runtime_handle *handle) {
+    if (handle == NULL || handle->last_error == NULL) {
+        return "";
+    }
+
+    return handle->last_error;
+}
+
+quickjs_value_handle *quickjs_runtime_eval_value(quickjs_runtime_handle *handle, const char *source) {
     if (handle == NULL || handle->context == NULL) {
-        return 1;
+        return NULL;
     }
     if (source == NULL) {
         quickjs_runtime_set_error(handle, "source must not be null");
-        return 1;
+        return NULL;
     }
 
     quickjs_runtime_clear_error(handle);
-    quickjs_runtime_clear_value(handle);
 
     JSValue value = JS_Eval(handle->context, source, strlen(source), "<eval>", JS_EVAL_TYPE_GLOBAL);
     if (JS_IsException(value)) {
@@ -142,52 +157,60 @@ int64_t quickjs_runtime_eval_value(quickjs_runtime_handle *handle, const char *s
         quickjs_runtime_set_error(handle, message);
         JS_FreeCString(handle->context, message);
         JS_FreeValue(handle->context, exception);
-        return 1;
+        return NULL;
     }
 
-    int64_t status = 0;
-    if (JS_IsUndefined(value)) {
-        handle->last_kind = QUICKJS_VALUE_UNDEFINED;
-    } else if (JS_IsNull(value)) {
-        handle->last_kind = QUICKJS_VALUE_NULL;
-    } else if (JS_IsBool(value)) {
-        int bool_value = JS_ToBool(handle->context, value);
-        if (bool_value < 0) {
-            quickjs_runtime_set_error(handle, "failed to convert JavaScript boolean result");
-            status = 1;
-        } else {
-            handle->last_kind = QUICKJS_VALUE_BOOL;
-            handle->last_bool = bool_value ? 1 : 0;
-        }
-    } else if (JS_IsNumber(value)) {
-        double number = 0.0;
-        if (JS_ToFloat64(handle->context, &number, value) != 0) {
-            quickjs_runtime_set_error(handle, "failed to convert JavaScript number result");
-            status = 1;
-        } else {
-            handle->last_kind = QUICKJS_VALUE_NUMBER;
-            handle->last_number = number;
-        }
-    } else if (JS_IsString(value)) {
-        status = quickjs_runtime_store_string_value(handle, QUICKJS_VALUE_STRING, value);
-    } else if (JS_IsBigInt(handle->context, value)) {
-        status = quickjs_runtime_store_string_value(handle, QUICKJS_VALUE_BIGINT, value);
-    } else {
-        quickjs_runtime_set_error(handle, "evaluation result is not a supported primitive value");
-        status = 1;
-    }
-
-    JS_FreeValue(handle->context, value);
-    return status;
+    return quickjs_value_handle_create(handle, value);
 }
 
-int64_t quickjs_runtime_set_global_value(
-    quickjs_runtime_handle *handle,
-    const char *name,
-    int64_t kind,
-    int64_t bool_value,
-    double number_value,
-    const char *string_value) {
+quickjs_value_handle *quickjs_runtime_new_undefined(quickjs_runtime_handle *handle) {
+    quickjs_runtime_clear_error(handle);
+    return quickjs_value_handle_create(handle, JS_UNDEFINED);
+}
+
+quickjs_value_handle *quickjs_runtime_new_null(quickjs_runtime_handle *handle) {
+    quickjs_runtime_clear_error(handle);
+    return quickjs_value_handle_create(handle, JS_NULL);
+}
+
+quickjs_value_handle *quickjs_runtime_new_bool(quickjs_runtime_handle *handle, int64_t value) {
+    if (handle == NULL || handle->context == NULL) {
+        return NULL;
+    }
+
+    quickjs_runtime_clear_error(handle);
+    return quickjs_value_handle_create(handle, JS_NewBool(handle->context, value != 0));
+}
+
+quickjs_value_handle *quickjs_runtime_new_number(quickjs_runtime_handle *handle, double value) {
+    if (handle == NULL || handle->context == NULL) {
+        return NULL;
+    }
+
+    quickjs_runtime_clear_error(handle);
+    return quickjs_value_handle_create(handle, JS_NewFloat64(handle->context, value));
+}
+
+quickjs_value_handle *quickjs_runtime_new_string(quickjs_runtime_handle *handle, const char *value) {
+    if (handle == NULL || handle->context == NULL) {
+        return NULL;
+    }
+    if (value == NULL) {
+        quickjs_runtime_set_error(handle, "string value must not be null");
+        return NULL;
+    }
+
+    quickjs_runtime_clear_error(handle);
+    JSValue string_value = JS_NewString(handle->context, value);
+    if (JS_IsException(string_value)) {
+        quickjs_runtime_set_error(handle, "failed to create JavaScript string");
+        return NULL;
+    }
+
+    return quickjs_value_handle_create(handle, string_value);
+}
+
+int64_t quickjs_runtime_set_global_value(quickjs_runtime_handle *handle, const char *name, quickjs_value_handle *value) {
     if (handle == NULL || handle->context == NULL) {
         return 1;
     }
@@ -195,35 +218,15 @@ int64_t quickjs_runtime_set_global_value(
         quickjs_runtime_set_error(handle, "global name must not be null");
         return 1;
     }
-
-    quickjs_runtime_clear_error(handle);
-
-    JSValue value = JS_UNDEFINED;
-    if (kind == QUICKJS_VALUE_UNDEFINED) {
-        value = JS_UNDEFINED;
-    } else if (kind == QUICKJS_VALUE_NULL) {
-        value = JS_NULL;
-    } else if (kind == QUICKJS_VALUE_BOOL) {
-        value = JS_NewBool(handle->context, bool_value != 0);
-    } else if (kind == QUICKJS_VALUE_NUMBER) {
-        value = JS_NewFloat64(handle->context, number_value);
-    } else if (kind == QUICKJS_VALUE_STRING) {
-        if (string_value == NULL) {
-            quickjs_runtime_set_error(handle, "string value must not be null");
-            return 1;
-        }
-        value = JS_NewString(handle->context, string_value);
-        if (JS_IsException(value)) {
-            quickjs_runtime_set_error(handle, "failed to create JavaScript string");
-            return 1;
-        }
-    } else {
-        quickjs_runtime_set_error(handle, "unsupported Cangjie value kind for JavaScript global");
+    if (value == NULL || value->runtime != handle) {
+        quickjs_runtime_set_error(handle, "global value does not belong to this runtime");
         return 1;
     }
 
+    quickjs_runtime_clear_error(handle);
+
     JSValue global = JS_GetGlobalObject(handle->context);
-    int status = JS_SetPropertyStr(handle->context, global, name, value);
+    int status = JS_SetPropertyStr(handle->context, global, name, JS_DupValue(handle->context, value->value));
     JS_FreeValue(handle->context, global);
     if (status < 0) {
         JSValue exception = JS_GetException(handle->context);
@@ -237,43 +240,109 @@ int64_t quickjs_runtime_set_global_value(
     return 0;
 }
 
-int64_t quickjs_runtime_last_kind(quickjs_runtime_handle *handle) {
+void quickjs_value_destroy(quickjs_value_handle *handle) {
     if (handle == NULL) {
+        return;
+    }
+
+    if (handle->runtime != NULL && handle->runtime->context != NULL) {
+        JS_FreeValue(handle->runtime->context, handle->value);
+    }
+
+    free(handle->last_error);
+    free(handle->last_string);
+    free(handle);
+}
+
+int64_t quickjs_value_kind(quickjs_value_handle *handle) {
+    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
         return QUICKJS_VALUE_UNDEFINED;
     }
 
-    return handle->last_kind;
+    if (JS_IsUndefined(handle->value)) {
+        return QUICKJS_VALUE_UNDEFINED;
+    }
+    if (JS_IsNull(handle->value)) {
+        return QUICKJS_VALUE_NULL;
+    }
+    if (JS_IsBool(handle->value)) {
+        return QUICKJS_VALUE_BOOL;
+    }
+    if (JS_IsNumber(handle->value)) {
+        return QUICKJS_VALUE_NUMBER;
+    }
+    if (JS_IsString(handle->value)) {
+        return QUICKJS_VALUE_STRING;
+    }
+    if (JS_IsBigInt(handle->runtime->context, handle->value)) {
+        return QUICKJS_VALUE_BIGINT;
+    }
+    if (JS_IsObject(handle->value)) {
+        return QUICKJS_VALUE_OBJECT;
+    }
+
+    return QUICKJS_VALUE_UNDEFINED;
 }
 
-int64_t quickjs_runtime_last_bool(quickjs_runtime_handle *handle) {
-    if (handle == NULL) {
+int64_t quickjs_value_to_bool(quickjs_value_handle *handle) {
+    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
         return 0;
     }
 
-    return handle->last_bool;
+    quickjs_value_clear_error(handle);
+    int value = JS_ToBool(handle->runtime->context, handle->value);
+    if (value < 0) {
+        quickjs_value_set_error(handle, "failed to convert JavaScript value to boolean");
+        return 0;
+    }
+
+    return value ? 1 : 0;
 }
 
-double quickjs_runtime_last_number(quickjs_runtime_handle *handle) {
-    if (handle == NULL) {
+double quickjs_value_to_number(quickjs_value_handle *handle) {
+    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
         return 0.0;
     }
 
-    return handle->last_number;
+    quickjs_value_clear_error(handle);
+    double value = 0.0;
+    if (JS_ToFloat64(handle->runtime->context, &value, handle->value) != 0) {
+        quickjs_value_set_error(handle, "failed to convert JavaScript value to number");
+        return 0.0;
+    }
+
+    return value;
 }
 
-const char *quickjs_runtime_last_string(quickjs_runtime_handle *handle) {
-    if (handle == NULL || handle->last_string == NULL) {
+const char *quickjs_value_to_string(quickjs_value_handle *handle) {
+    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
+        return "";
+    }
+
+    quickjs_value_clear_error(handle);
+    free(handle->last_string);
+    handle->last_string = NULL;
+
+    const char *value = JS_ToCString(handle->runtime->context, handle->value);
+    if (value == NULL) {
+        quickjs_value_set_error(handle, "failed to convert JavaScript value to string");
+        return "";
+    }
+
+    handle->last_string = quickjs_bridge_copy_string(value);
+    JS_FreeCString(handle->runtime->context, value);
+    if (handle->last_string == NULL) {
+        quickjs_value_set_error(handle, "failed to allocate JavaScript string result");
         return "";
     }
 
     return handle->last_string;
 }
 
-const char *quickjs_runtime_last_error(quickjs_runtime_handle *handle) {
+const char *quickjs_value_last_error(quickjs_value_handle *handle) {
     if (handle == NULL || handle->last_error == NULL) {
         return "";
     }
 
     return handle->last_error;
 }
-

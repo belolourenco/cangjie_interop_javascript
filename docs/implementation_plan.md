@@ -212,6 +212,8 @@ Support Cangjie arguments sent into JavaScript:
 
 For this phase, the input boundary can be a narrow primitive global-binding API such as `runtime.setGlobal(name, value)`. Function calls with argument arrays are still part of Phase 5.
 
+Use native value handles for all JavaScript values, including primitives. `JSValue` should own a native `quickjs_value_handle` and release it through `Resource.close()`. Primitive accessors such as `asBool()`, `asFloat64()`, and `asString()` read through native bridge accessors instead of storing copied payload fields in Cangjie.
+
 Support JavaScript results read back by Cangjie:
 
 - boolean
@@ -222,13 +224,14 @@ Support JavaScript results read back by Cangjie:
 
 This is data conversion at the call boundary, not JavaScript calling Cangjie.
 
-Deliverable: round-trip tests for primitive values.
+Deliverable: round-trip tests for primitive values using native value handles.
 
 Validation:
 
 - Add tests for each supported Cangjie argument type.
 - Add tests for each supported JavaScript result type.
 - Add failed-conversion tests for mismatched types and unsupported values.
+- Add ownership tests proving an evaluated value remains valid after a later evaluation until its own handle is closed.
 
 ### Phase 4: Dynamic Object And Array API
 

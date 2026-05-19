@@ -59,7 +59,7 @@ $(NATIVE_BRIDGE_OBJECT): native/quickjs_bridge.c native/quickjs_bridge.h $(QUICK
 	mkdir -p $(@D)
 	$(CC) $(COMMON_CFLAGS) -Inative -c $< -o $@
 
-$(SMOKE_BIN): tests/smoke/smoke.cj $(NATIVE_LIB)
+$(SMOKE_BIN): tests/smoke/smoke.cj $(NATIVE_LIB) cangjie
 	mkdir -p $(@D)
 	$(CJC) tests/smoke/smoke.cj \
 		--set-runtime-rpath \
