@@ -117,7 +117,8 @@ Build responsibilities:
 - `cjpm.toml` owns Cangjie package metadata and Cangjie compilation.
 - The native build compiles QuickJS and `native/quickjs_bridge.c`.
 - The native build produces a static archive at `build/native/libquickjs_bridge.a`.
-- The Cangjie build links against `build/native/libquickjs_bridge.a`.
+- The Cangjie package build compiles the public Cangjie API and FFI declarations.
+- Final executables that use the native bridge link against both the Cangjie package archive and `build/native/libquickjs_bridge.a`.
 - Generated native object files and archives live under `build/native/`.
 - Vendored QuickJS source stays under `native/quickjs/` and is not modified during normal builds.
 
@@ -125,7 +126,7 @@ Required make targets:
 
 - `make native`: compile QuickJS and the C bridge into `build/native/libquickjs_bridge.a`.
 - `make build`: run `make native`, run the Cangjie build, then compile the smoke executable as a link check.
-- `make test`: run `make build`, then run the Cangjie tests and smoke tests.
+- `make test`: run `make build`, then run the available Cangjie tests and smoke tests. In Phase 1, this may be limited to the skeleton smoke executable.
 - `make clean`: remove generated build artifacts.
 
 The build should prefer static linking for the first implementation. That keeps early development free of dynamic-library search path issues.
@@ -165,8 +166,8 @@ Minimal smoke test:
 
 ### Phase 2: QuickJS Native Bridge
 
-- Add `quickjs_bridge.c` and `quickjs_bridge.h`.
-- Implement runtime/context creation and cleanup.
+- Extend the skeleton `quickjs_bridge.c` and `quickjs_bridge.h`.
+- Implement runtime/context creation and cleanup in the native bridge.
 - Implement source evaluation:
   - `evalScript(source: String): JSValue`
   - `evalModule(source: String, path: String): JSModule`
@@ -353,12 +354,12 @@ Testing and validation are required after every implementation phase. A phase is
 - How much TypeScript declaration parsing should be included in the first typed wrapper layer?
 - Do we need a separate `JSArray` wrapper, or is `JSObject` with indexed helpers enough for the first version?
 
-## First Concrete Milestone
+## Next Concrete Milestone
 
-Build a minimal macOS command-line example:
+Build the first real JavaScript execution path after the Phase 1 skeleton:
 
 1. Cangjie creates a JavaScript runtime.
-2. Cangjie evaluates `function add(a, b) { return a + b }`.
-3. Cangjie reads the JavaScript `add` function and calls `add(2, 3)`.
-4. The example prints `5`.
-5. A test verifies the result.
+2. Cangjie evaluates `1 + 2`.
+3. Cangjie reads the JavaScript result as a number.
+4. The example or smoke test prints or verifies `3`.
+5. A failure test verifies that invalid JavaScript syntax reports a useful error.
