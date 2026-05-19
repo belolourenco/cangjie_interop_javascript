@@ -66,7 +66,6 @@ $(SMOKE_BIN): tests/smoke/smoke.cj $(NATIVE_LIB)
 		--import-path $(PACKAGE_BUILD_DIR) \
 		-L $(PACKAGE_BUILD_DIR) \
 		-linterop_javascript.jsinterop \
-		-linterop_javascript.quickjs_backend \
 		-L $(NATIVE_BUILD_DIR) \
 		-lquickjs_bridge \
 		-o $@

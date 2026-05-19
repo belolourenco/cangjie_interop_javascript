@@ -48,10 +48,6 @@ interop_javascript/
       module.cj
       conversion.cj
       errors.cj
-    quickjs_backend/
-      quickjs_runtime.cj
-      quickjs_value.cj
-      quickjs_ffi.cj
   native/
     quickjs/
     quickjs_bridge.h
@@ -90,9 +86,9 @@ let name = result.get("name").asString()
 let coordinates = result.get("coordinates").asArray()
 ```
 
-### Backend Layer
+### Native Bridge Layer
 
-The backend layer should hide engine-specific details behind an internal interface:
+Engine-specific details should be hidden behind a small native C bridge instead of a second Cangjie package:
 
 - Create/destroy runtime.
 - Create/destroy context.
@@ -105,7 +101,7 @@ The backend layer should hide engine-specific details behind an internal interfa
 - Retain/release JavaScript values.
 - Extract exception details.
 
-For QuickJS, implement this through a small C shim instead of binding directly to the full QuickJS C API from Cangjie. The shim gives us a stable, narrow FFI surface.
+For QuickJS, implement this through `native/quickjs_bridge.c` and `native/quickjs_bridge.h` instead of binding directly to the full QuickJS C API from Cangjie. The Cangjie API can call this narrow FFI surface directly from `jsinterop`.
 
 ## Build System Plan
 
@@ -180,7 +176,7 @@ Native bridge responsibilities:
 
 Cangjie layer responsibilities:
 
-- Add the first public `JSRuntime` wrapper in `jsinterop`, backed by a QuickJS-specific runtime adapter in `quickjs_backend`.
+- Add the first public `JSRuntime` wrapper in `jsinterop`, backed directly by the native QuickJS bridge.
 - Expose a small public evaluation API such as `evalScript(source: String): JSValue` or an equivalent result type.
 - Add a minimal `JSValue` representation that can carry only the Phase 2 result kinds.
 - Add a `JSError` representation that preserves at least the JavaScript error message.
@@ -367,7 +363,7 @@ Testing and validation are required after every implementation phase. A phase is
 
 - Prefer explicit conversion over implicit magic.
 - Keep dynamic interop small and reliable before adding typed convenience wrappers.
-- Keep engine-specific code isolated under `quickjs_backend`.
+- Keep engine-specific code isolated in the native QuickJS bridge.
 - Make runtime ownership visible so JavaScript values cannot outlive their context.
 - Preserve JavaScript exception messages and stack traces whenever possible.
 - Keep the first design one-way: Cangjie drives JavaScript, and JavaScript does not call into Cangjie.

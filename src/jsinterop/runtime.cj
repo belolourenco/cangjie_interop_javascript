@@ -1,6 +1,21 @@
 package interop_javascript.jsinterop
 
-import interop_javascript.quickjs_backend.*
+foreign func quickjs_runtime_create(): CPointer<Unit>
+foreign func quickjs_runtime_destroy(handle: CPointer<Unit>): Unit
+foreign func quickjs_runtime_eval_value(handle: CPointer<Unit>, source: CString): Int64
+foreign func quickjs_runtime_set_global_value(
+    handle: CPointer<Unit>,
+    name: CString,
+    kind: Int64,
+    boolValue: Int64,
+    numberValue: Float64,
+    stringValue: CString
+): Int64
+foreign func quickjs_runtime_last_kind(handle: CPointer<Unit>): Int64
+foreign func quickjs_runtime_last_bool(handle: CPointer<Unit>): Int64
+foreign func quickjs_runtime_last_number(handle: CPointer<Unit>): Float64
+foreign func quickjs_runtime_last_string(handle: CPointer<Unit>): CString
+foreign func quickjs_runtime_last_error(handle: CPointer<Unit>): CString
 
 public func jsInteropVersion(): String {
     "0.1.0-phase3"
@@ -32,6 +47,14 @@ func jsValueStringKind(): Int64 {
 
 func jsValueBigIntKind(): Int64 {
     5
+}
+
+func boolAsInt64(value: Bool): Int64 {
+    if (value) {
+        1
+    } else {
+        0
+    }
 }
 
 public class JSError {
@@ -201,46 +224,80 @@ public class JSEvalResult {
 }
 
 public class JSRuntime <: Resource {
-    let backend: QuickJSRuntime
+    var handle: CPointer<Unit> = CPointer<Unit>()
+    var closed: Bool = true
 
     public init() {
-        backend = QuickJSRuntime()
+        let created = unsafe { quickjs_runtime_create() }
+        if (created.isNull()) {
+            throw Exception("failed to create QuickJS runtime")
+        }
+
+        handle = created
+        closed = false
     }
 
     public func evalScript(source: String): JSEvalResult {
-        let result = backend.evalScript(source)
-        if (result.isOk()) {
+        if (closed) {
+            return JSEvalResult(false, JSValue.undefined(), JSError("QuickJS runtime is closed"))
+        }
+
+        let cSource = unsafe { LibC.mallocCString(source) }
+        let status = unsafe { quickjs_runtime_eval_value(handle, cSource) }
+        unsafe { LibC.free(cSource) }
+
+        if (status == 0) {
             return JSEvalResult(
                 true,
-                JSValue(result.valueKind(), result.asBool(), result.asFloat64(), result.asString()),
+                JSValue(
+                    unsafe { quickjs_runtime_last_kind(handle) },
+                    unsafe { quickjs_runtime_last_bool(handle) != 0 },
+                    unsafe { quickjs_runtime_last_number(handle) },
+                    unsafe { quickjs_runtime_last_string(handle).toString() }
+                ),
                 JSError("")
             )
         }
 
-        return JSEvalResult(false, JSValue.undefined(), JSError(result.errorMessage()))
+        return JSEvalResult(false, JSValue.undefined(), JSError(unsafe { quickjs_runtime_last_error(handle).toString() }))
     }
 
     public func setGlobal(name: String, value: JSValue): Unit {
-        let error = backend.setGlobal(
-            name,
-            QuickJSPrimitiveValue(
+        if (closed) {
+            throw Exception("QuickJS runtime is closed")
+        }
+
+        let cName = unsafe { LibC.mallocCString(name) }
+        let cStringValue = unsafe { LibC.mallocCString(value.rawString()) }
+        let status = unsafe {
+            quickjs_runtime_set_global_value(
+                handle,
+                cName,
                 value.valueKind(),
-                value.rawBool(),
+                boolAsInt64(value.rawBool()),
                 value.rawFloat64(),
-                value.rawString()
+                cStringValue
             )
-        )
-        if (!error.isEmpty()) {
-            throw Exception(error)
+        }
+        unsafe {
+            LibC.free(cName)
+            LibC.free(cStringValue)
+        }
+
+        if (status != 0) {
+            throw Exception(unsafe { quickjs_runtime_last_error(handle).toString() })
         }
     }
 
     public func isClosed(): Bool {
-        backend.isClosed()
+        closed
     }
 
     public func close(): Unit {
-        backend.close()
+        if (!closed) {
+            unsafe { quickjs_runtime_destroy(handle) }
+            handle = CPointer<Unit>()
+            closed = true
+        }
     }
 }
-
