@@ -7,7 +7,7 @@ func runLoadModulesSmoke(): Int64 {
     runtime.enableStdModule()
     runtime.enableStdModule()
 
-    let module = runtime.importModule("examples/shape_module.js")
+    let module = runtime.importModule("tests/smoke/js_examples/ok/shape_module.js")
     let keys = module.keys()
     var sawLookup = false
     var sawRectangle = false
@@ -81,7 +81,7 @@ func runLoadModulesSmoke(): Int64 {
     rectangleValue.close()
 
     let marker = module.get("moduleMarker")
-    let cachedModule = runtime.importModule("examples/shape_module.js")
+    let cachedModule = runtime.importModule("tests/smoke/js_examples/ok/shape_module.js")
     let cachedMarker = cachedModule.get("moduleMarker")
     if (marker.asFloat64() != cachedMarker.asFloat64()) {
         println("module cache did not preserve evaluated namespace")

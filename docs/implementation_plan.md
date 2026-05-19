@@ -54,11 +54,11 @@ interop_javascript/
     quickjs_bridge.c
   build/
     native/
-  examples/
-    basic_eval/
-    module_call/
-    shape_module/
   tests/
+    smoke/
+      js_examples/
+        ok/
+        nok/
 ```
 
 ### Public Cangjie Layer
@@ -77,7 +77,7 @@ Example target API:
 
 ```cangjie
 let runtime = JSRuntime()
-let module = runtime.importModule("./examples/my_module.js")
+let module = runtime.importModule("./tests/smoke/js_examples/ok/my_module.js")
 
 let lookup = module.get("lookup").asFunction()
 let result = lookup.call([47.6205, -122.3493]).asObject()
@@ -289,7 +289,7 @@ Implement file-based module loading:
 - Cache evaluated module namespaces per runtime and return duplicated namespace handles on repeated imports.
 - Provide meaningful load, syntax, and evaluation errors.
 
-Deliverable: Cangjie can import `examples/shape_module.js` and call its exports.
+Deliverable: Cangjie can import `tests/smoke/js_examples/ok/shape_module.js` and call its exports.
 
 Validation:
 

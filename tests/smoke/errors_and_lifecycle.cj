@@ -36,7 +36,7 @@ func runErrorsAndLifecycleSmoke(): Int64 {
     throwingConstructorValue.close()
 
     try {
-        let unexpected = runtime.importModule("examples/missing_module.js")
+        let unexpected = runtime.importModule("tests/smoke/js_examples/nok/missing_module.js")
         unexpected.close()
         println("missing module unexpectedly loaded")
         return 5
@@ -48,7 +48,7 @@ func runErrorsAndLifecycleSmoke(): Int64 {
     }
 
     try {
-        let unexpected = runtime.importModule("examples/broken_module.js")
+        let unexpected = runtime.importModule("tests/smoke/js_examples/nok/broken_module.js")
         unexpected.close()
         println("broken module unexpectedly loaded")
         return 7
