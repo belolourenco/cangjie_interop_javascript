@@ -1,0 +1,15 @@
+[package]
+  cjc-version = "1.0.5"
+  name = "extern_primitive_types"
+  description = "Primitive type checks for the extern QuickJS runtime"
+  version = "0.1.0"
+  target-dir = ""
+  output-type = "executable"
+  compile-option = ""
+  override-compile-option = ""
+  link-option = "-L ../../build/native -lquickjs_bridge"
+  package-configuration = {}
+
+[dependencies]
+  interop_javascript = { path = "../.." }
+  extern = { git = "https://github.com/belolourenco/cangjie_extern.git", branch = "main" }
