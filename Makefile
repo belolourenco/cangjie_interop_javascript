@@ -22,6 +22,7 @@ NATIVE_LIB := $(NATIVE_BUILD_DIR)/libquickjs_bridge.a
 PACKAGE_BUILD_DIR := target/release/interop_javascript
 SMOKE_SOURCES := tests/smoke/main.cj $(filter-out tests/smoke/main.cj,$(wildcard tests/smoke/*.cj))
 SMOKE_BIN := $(SMOKE_BUILD_DIR)/smoke
+EXTERN_PRIMITIVE_TYPES_DIR := tests/extern_primitive_types
 
 COMMON_CFLAGS := -std=c11 -O2 -g -Wall -Wextra -Wno-unused-parameter
 COMMON_CFLAGS += -Wno-sign-compare -Wno-missing-field-initializers
@@ -32,7 +33,7 @@ ifeq ($(shell uname -s),Darwin)
 COMMON_CFLAGS += -mmacosx-version-min=12.0
 endif
 
-.PHONY: native cangjie build test clean
+.PHONY: native cangjie build test extern-primitive-types-build extern-primitive-types-test clean
 
 native: $(NATIVE_LIB)
 
@@ -43,9 +44,17 @@ build: native cangjie $(SMOKE_BIN)
 
 test: build
 	$(SMOKE_BIN)
+	$(MAKE) extern-primitive-types-test
+
+extern-primitive-types-build: native
+	cd $(EXTERN_PRIMITIVE_TYPES_DIR) && $(CJPM) build
+
+extern-primitive-types-test: extern-primitive-types-build
+	cd $(EXTERN_PRIMITIVE_TYPES_DIR) && $(CJPM) run
 
 clean:
 	rm -rf $(BUILD_DIR) target
+	rm -rf $(EXTERN_PRIMITIVE_TYPES_DIR)/target $(EXTERN_PRIMITIVE_TYPES_DIR)/build-script-cache
 
 $(NATIVE_LIB): $(NATIVE_OBJECTS)
 	mkdir -p $(@D)

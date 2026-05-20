@@ -6,6 +6,7 @@ import interop_javascript.jsinterop.JSEvalResult
 import interop_javascript.jsinterop.JSFunction
 import interop_javascript.jsinterop.JSModule
 import interop_javascript.jsinterop.JSRuntime as QuickJSNativeRuntime
+import std.math.numeric.BigInt
 
 private func externContentToJSValue(content: Any): JSValue {
     match (content) {
@@ -28,46 +29,74 @@ private func quickJS2Cangjie<T>(value: JSValue, cjType: Option<T>) {
         case _: Option<Int8> =>
             if (value.isNumber()) {
                 return (Int8(value.asFloat64()) as T).getOrThrow()
+            } else if (value.isBigInt()) {
+                return (BigInt.parse(value.asString()).toInt8() as T).getOrThrow()
             }
         case _: Option<Int16> =>
             if (value.isNumber()) {
                 return (Int16(value.asFloat64()) as T).getOrThrow()
+            } else if (value.isBigInt()) {
+                return (BigInt.parse(value.asString()).toInt16() as T).getOrThrow()
             }
         case _: Option<Int32> =>
             if (value.isNumber()) {
                 return (Int32(value.asFloat64()) as T).getOrThrow()
+            } else if (value.isBigInt()) {
+                return (BigInt.parse(value.asString()).toInt32() as T).getOrThrow()
             }
         case _: Option<Int64> =>
             if (value.isNumber()) {
                 return (Int64(value.asFloat64()) as T).getOrThrow()
+            } else if (value.isBigInt()) {
+                return (BigInt.parse(value.asString()).toInt64() as T).getOrThrow()
             }
         case _: Option<UInt8> =>
             if (value.isNumber()) {
                 return (UInt8(value.asFloat64()) as T).getOrThrow()
+            } else if (value.isBigInt()) {
+                return (BigInt.parse(value.asString()).toUInt8() as T).getOrThrow()
             }
         case _: Option<UInt16> =>
             if (value.isNumber()) {
                 return (UInt16(value.asFloat64()) as T).getOrThrow()
+            } else if (value.isBigInt()) {
+                return (BigInt.parse(value.asString()).toUInt16() as T).getOrThrow()
             }
         case _: Option<UInt32> =>
             if (value.isNumber()) {
                 return (UInt32(value.asFloat64()) as T).getOrThrow()
+            } else if (value.isBigInt()) {
+                return (BigInt.parse(value.asString()).toUInt32() as T).getOrThrow()
             }
         case _: Option<UInt64> =>
             if (value.isNumber()) {
                 return (UInt64(value.asFloat64()) as T).getOrThrow()
+            } else if (value.isBigInt()) {
+                return (BigInt.parse(value.asString()).toUInt64() as T).getOrThrow()
+            }
+        case _: Option<BigInt> =>
+            if (value.isNumber()) {
+                return (BigInt(value.asFloat64()) as T).getOrThrow()
+            } else if (value.isBigInt()) {
+                return (BigInt.parse(value.asString()) as T).getOrThrow()
             }
         case _: Option<Float16> =>
             if (value.isNumber()) {
                 return (Float16(value.asFloat64()) as T).getOrThrow()
+            } else if (value.isBigInt()) {
+                return (BigInt.parse(value.asString()).toFloat16() as T).getOrThrow()
             }
         case _: Option<Float32> =>
             if (value.isNumber()) {
                 return (Float32(value.asFloat64()) as T).getOrThrow()
+            } else if (value.isBigInt()) {
+                return (BigInt.parse(value.asString()).toFloat32() as T).getOrThrow()
             }
         case _: Option<Float64> =>
             if (value.isNumber()) {
                 return (value.asFloat64() as T).getOrThrow()
+            } else if (value.isBigInt()) {
+                return (BigInt.parse(value.asString()).toFloat64() as T).getOrThrow()
             }
         case _: Option<JSValue> =>
             return (value as T).getOrThrow()
@@ -79,6 +108,17 @@ private func quickJS2Cangjie<T>(value: JSValue, cjType: Option<T>) {
 
 abstract public class JSRuntime <: Runtime<JSRuntime> {
     private static let runtime = QuickJSNativeRuntime(".")
+
+    private static func toJSBigInt(value: String): JSEvalResult {
+        let result = runtime.evalScript("${value}n")
+        if (!result.isOk()) {
+            let message = result.errorMessage()
+            result.close()
+            throw ExternConversionException(message)
+        }
+
+        result
+    }
 
     private static func toJSValue(value: Any): JSValue {
         match (value) {
@@ -93,15 +133,17 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
             case i: Int32 =>
                 JSValue.int64(runtime, Int64(i))
             case i: Int64 =>
-                JSValue.int64(runtime, i)
+                toJSBigInt("${i}").asValue()
             case i: UInt8 =>
                 JSValue.int64(runtime, Int64(i))
             case i: UInt16 =>
                 JSValue.int64(runtime, Int64(i))
             case i: UInt32 =>
-                JSValue.float64(runtime, Float64(i))
+                toJSBigInt("${i}").asValue()
             case i: UInt64 =>
-                JSValue.float64(runtime, Float64(i))
+                toJSBigInt("${i}").asValue()
+            case i: BigInt =>
+                toJSBigInt("${i}").asValue()
             case f: Float16 =>
                 JSValue.float64(runtime, Float64(f))
             case f: Float32 =>
