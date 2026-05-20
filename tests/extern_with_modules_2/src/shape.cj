@@ -57,8 +57,26 @@ public class Point {
 }
 
 public interface Shape {
-    func area(): Float64
-    func perimeter(): Float64
+
+    func getBlob(): Extern<JSRuntime>
+
+    func name(): String {
+        let nameMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(getBlob(), "name")
+        let result: Extern<JSRuntime> = JSRuntime.evalFunctionCall(nameMethod, [])
+        JSRuntime.fromExtern<String>(result)
+    }
+
+    func area(): Float64 {
+        let areaMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(getBlob(), "area")
+        let result: Extern<JSRuntime> = JSRuntime.evalFunctionCall(areaMethod, [])
+        JSRuntime.fromExtern<Float64>(result)
+    }
+
+    func perimeter(): Float64 {
+        let perimeterMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(getBlob(), "perimeter")
+        let result: Extern<JSRuntime> = JSRuntime.evalFunctionCall(perimeterMethod, [])
+        JSRuntime.fromExtern<Float64>(result)
+    }
 }
 
 public class Rectangle <: Shape {
@@ -72,6 +90,10 @@ public class Rectangle <: Shape {
 
     public init(extern: Extern<JSRuntime>) {
         blob = extern
+    }
+
+    public func getBlob(): Extern<JSRuntime> {
+        blob
     }
 
     public mut prop topLeft: Point {
@@ -113,18 +135,6 @@ public class Rectangle <: Shape {
             JSRuntime.evalAssignment(blob, "height", value)
         }
     }
-
-    public func area(): Float64 {
-        let areaMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(blob, "area")
-        let result: Extern<JSRuntime> = JSRuntime.evalFunctionCall(areaMethod, [])
-        JSRuntime.fromExtern<Float64>(result)
-    }
-
-    public func perimeter(): Float64 {
-        let perimeterMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(blob, "perimeter")
-        let result: Extern<JSRuntime> = JSRuntime.evalFunctionCall(perimeterMethod, [])
-        JSRuntime.fromExtern<Float64>(result)
-    }
 }
 
 public class Circle <: Shape {
@@ -137,6 +147,10 @@ public class Circle <: Shape {
 
     public init(extern: Extern<JSRuntime>) {
         blob = extern
+    }
+
+    public func getBlob(): Extern<JSRuntime> {
+        blob
     }
 
     public mut prop center: Point {
@@ -158,18 +172,6 @@ public class Circle <: Shape {
             JSRuntime.evalAssignment(blob, "radius", value)
         }
     }
-
-    public func area(): Float64 {
-        let areaMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(blob, "area")
-        let result: Extern<JSRuntime> = JSRuntime.evalFunctionCall(areaMethod, [])
-        JSRuntime.fromExtern<Float64>(result)
-    }
-
-    public func perimeter(): Float64 {
-        let perimeterMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(blob, "perimeter")
-        let result: Extern<JSRuntime> = JSRuntime.evalFunctionCall(perimeterMethod, [])
-        JSRuntime.fromExtern<Float64>(result)
-    }
 }
 
 public class Triangle <: Shape {
@@ -182,6 +184,10 @@ public class Triangle <: Shape {
 
     public init(extern: Extern<JSRuntime>) {
         blob = extern
+    }
+
+    public func getBlob(): Extern<JSRuntime> {
+        blob
     }
 
     public mut prop a: Point {
@@ -212,17 +218,5 @@ public class Triangle <: Shape {
         set(value) {
             JSRuntime.evalAssignment(blob, "c", value.blob)
         }
-    }
-
-    public func area(): Float64 {
-        let areaMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(blob, "area")
-        let result: Extern<JSRuntime> = JSRuntime.evalFunctionCall(areaMethod, [])
-        JSRuntime.fromExtern<Float64>(result)
-    }
-
-    public func perimeter(): Float64 {
-        let perimeterMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(blob, "perimeter")
-        let result: Extern<JSRuntime> = JSRuntime.evalFunctionCall(perimeterMethod, [])
-        JSRuntime.fromExtern<Float64>(result)
     }
 }

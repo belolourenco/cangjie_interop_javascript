@@ -44,8 +44,6 @@ quickjs_value_handle *quickjs_value_call2(quickjs_value_handle *function, quickj
 quickjs_value_handle *quickjs_value_call_method0(quickjs_value_handle *function, quickjs_value_handle *this_value);
 quickjs_value_handle *quickjs_value_call_method1(quickjs_value_handle *function, quickjs_value_handle *this_value, quickjs_value_handle *arg0);
 quickjs_value_handle *quickjs_value_call_method2(quickjs_value_handle *function, quickjs_value_handle *this_value, quickjs_value_handle *arg0, quickjs_value_handle *arg1);
-quickjs_value_handle *quickjs_value_construct0(quickjs_value_handle *constructor);
-quickjs_value_handle *quickjs_value_construct1(quickjs_value_handle *constructor, quickjs_value_handle *arg0);
-quickjs_value_handle *quickjs_value_construct2(quickjs_value_handle *constructor, quickjs_value_handle *arg0, quickjs_value_handle *arg1);
+quickjs_value_handle *quickjs_value_construct(quickjs_value_handle *constructor, quickjs_value_handle **args, int numArgs);
 
 #endif

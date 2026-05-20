@@ -38,9 +38,7 @@ foreign func quickjs_value_call2(function: CPointer<Unit>, arg0: CPointer<Unit>,
 foreign func quickjs_value_call_method0(function: CPointer<Unit>, thisValue: CPointer<Unit>): CPointer<Unit>
 foreign func quickjs_value_call_method1(function: CPointer<Unit>, thisValue: CPointer<Unit>, arg0: CPointer<Unit>): CPointer<Unit>
 foreign func quickjs_value_call_method2(function: CPointer<Unit>, thisValue: CPointer<Unit>, arg0: CPointer<Unit>, arg1: CPointer<Unit>): CPointer<Unit>
-foreign func quickjs_value_construct0(function: CPointer<Unit>): CPointer<Unit>
-foreign func quickjs_value_construct1(function: CPointer<Unit>, arg0: CPointer<Unit>): CPointer<Unit>
-foreign func quickjs_value_construct2(function: CPointer<Unit>, arg0: CPointer<Unit>, arg1: CPointer<Unit>): CPointer<Unit>
+foreign func quickjs_value_construct(function: CPointer<Unit>, args: CPointer<CPointer<Unit>>, numArgs: Int32): CPointer<Unit>
 
 public func jsInteropVersion(): String {
     "0.1.0-phase7"
@@ -626,14 +624,17 @@ public class JSFunction {
 
     public func construct(args: Array<JSValue>): JSValue {
         value.ensureOpen()
-        if (args.size == 0) {
-            return valueFromCallResult(unsafe { quickjs_value_construct0(value.nativeHandle()) })
-        }
-        if (args.size == 1) {
-            return valueFromCallResult(unsafe { quickjs_value_construct1(value.nativeHandle(), args[0].nativeHandle()) })
-        }
-        if (args.size == 2) {
-            return valueFromCallResult(unsafe { quickjs_value_construct2(value.nativeHandle(), args[0].nativeHandle(), args[1].nativeHandle()) })
+        let nativeArgs = args.map { it => it.nativeHandle() }
+        unsafe {
+            let rawNativeArgs = acquireArrayRawData(nativeArgs) 
+            try {
+                let result = valueFromCallResult(quickjs_value_construct(value.nativeHandle(), rawNativeArgs.pointer, Int32(args.size)))
+                releaseArrayRawData(rawNativeArgs)
+                return result
+            } catch (e: Exception) {
+                releaseArrayRawData(rawNativeArgs)
+                throw e
+            }
         }
 
         throw Exception("JavaScript constructors support up to two arguments in Phase 5")

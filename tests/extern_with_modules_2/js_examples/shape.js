@@ -10,6 +10,9 @@ export class Point {
 }
 
 export class Shape {
+  name() {
+    return "Shape";
+  }
   area() {
     throw new Error("Shape.area must be implemented by subclasses");
   }
@@ -30,6 +33,10 @@ export class Rectangle extends Shape {
       this.topLeft = topLeft;
       this.bottomRight = bottomRight;
     }
+  }
+
+  name() {
+    return "Rectangle";
   }
 
   get width() {
@@ -76,6 +83,10 @@ export class Circle extends Shape {
     this.radius = radius;
   }
 
+  name() {
+    return "Circle";
+  }
+
   area() {
     const radius = Math.abs(this.radius);
     return Math.PI * radius * radius;
@@ -92,6 +103,10 @@ export class Triangle extends Shape {
     this.a = a;
     this.b = b;
     this.c = c;
+  }
+
+  name() {
+    return "Triangle";
   }
 
   area() {

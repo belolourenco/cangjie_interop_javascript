@@ -1,6 +1,8 @@
 package extern_with_modules
 
 import std.math.*
+import std.collection.ArrayList
+
 
 class AssertionFailedException <: Exception {
 
@@ -33,6 +35,18 @@ func area_circle(x: Float64, y: Float64, radius: Float64): Float64 {
 
 func perimeter_circle(x: Float64, y: Float64, radius: Float64): Float64 {
     2.0 * Float64.getPI() * radius
+}
+
+func area_triangle(x1: Float64, y1: Float64, x2: Float64, y2: Float64, x3: Float64, y3: Float64): Float64 {
+    let s = (x1 * y2 - x1 * y3 + x2 * y3 - x2 * y1 + x3 * y1 - x3 * y2) / 2.0
+    abs(s)
+}
+
+func perimeter_triangle(x1: Float64, y1: Float64, x2: Float64, y2: Float64, x3: Float64, y3: Float64): Float64 {
+    let a = distance(x1, y1, x2, y2)
+    let b = distance(x2, y2, x3, y3)
+    let c = distance(x3, y3, x1, y1)
+    a + b + c
 }
 
 public func testExternWithModules() {
@@ -150,69 +164,29 @@ public func testExternWithModules() {
     let p1 = Point(0.0, 0.0)
     let p2 = Point(10.0, 0.0)
     let p3 = Point(5.0, 5.0)
-    // let triangle1 = Triangle(p1, p2, p3)
-    // println("Triangle 1: (${triangle1.a.x}, ${triangle1.a.y}), (${triangle1.b.x}, ${triangle1.b.y}), (${triangle1.c.x}, ${triangle1.c.y})")
-    // assert(triangle1.a.x == point1.x && triangle1.a.y == point1.y, "Triangle 1 a should be (${point1.x}, ${point1.y})")
-    // assert(triangle1.b.x == point2.x && triangle1.b.y == point2.y, "Triangle 1 b should be (${point2.x}, ${point2.y})")
-    // assert(triangle1.c.x == point3.x && triangle1.c.y == point3.y, "Triangle 1 c should be (${point3.x}, ${point3.y})")
+    
+    let triangle1 = Triangle(p1, p2, p3)
+    println("Triangle 1: (${triangle1.a.x}, ${triangle1.a.y}), (${triangle1.b.x}, ${triangle1.b.y}), (${triangle1.c.x}, ${triangle1.c.y})")
+    assert(triangle1.a.x == p1.x && triangle1.a.y == p1.y, "Triangle 1 a should be (${p1.x}, ${p1.y})")
+    assert(triangle1.b.x == p2.x && triangle1.b.y == p2.y, "Triangle 1 b should be (${p2.x}, ${p2.y})")
+    assert(triangle1.c.x == p3.x && triangle1.c.y == p3.y, "Triangle 1 c should be (${p3.x}, ${p3.y})")
 
-    // println("Triangle 1 area: ${triangle1.area()}")
-    // let triangle_area = area_triangle(triangle1.a.x, triangle1.a.y, triangle1.b.x, triangle1.b.y, triangle1.c.x, triangle1.c.y)
-    // assert(triangle1.area() == triangle_area, "Triangle 1 area should be ${triangle_area}")
+    println("Triangle 1 area: ${triangle1.area()}")
+    let triangle_area = area_triangle(triangle1.a.x, triangle1.a.y, triangle1.b.x, triangle1.b.y, triangle1.c.x, triangle1.c.y)
+    assert(abs(triangle1.area() - triangle_area) < 1e-6, "Triangle 1 area should be ${triangle_area}")
 
-    // // ---- JavaScript Module ----
-    // let jsModule: Extern<JSRuntime> = JSRuntime.getModule("js_examples/shape.js")
+    println("Triangle 1 perimeter: ${triangle1.perimeter()}")
+    let triangle_perimeter = perimeter_triangle(triangle1.a.x, triangle1.a.y, triangle1.b.x, triangle1.b.y, triangle1.c.x, triangle1.c.y)
+    assert(abs(triangle1.perimeter() - triangle_perimeter) < 1e-6, "Triangle 1 perimeter should be ${triangle_perimeter}")
 
-    // // ---- Rectangle ----
+    let shapes = ArrayList<Shape>([rectangle1, circle1, triangle1])
+    print_all_shapes(shapes)
 
-    // // let rectangle: Extern<JSRuntime> = jsModule.Rectangle(10, 11)
-    // // ->
-    // let rectangleConstructor: Extern<JSRuntime> = JSRuntime.evalMemberAccess(jsModule, "Rectangle")
-    // let rectangleObject: Extern<JSRuntime> = JSRuntime.evalFunctionCall(rectangleConstructor, [10, 11])
+}
 
-    // // let rectangleWidth: Extern<JSRuntime> = rectangleObject.getWidth()
-    // // ->
-    // let rectangleWidthMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(rectangleObject, "getWidth")
-    // let rectangleWidthResult: Extern<JSRuntime> = JSRuntime.evalFunctionCall(rectangleWidthMethod, [])
-    // println("Rectangle width: ${JSRuntime.fromExtern<Float64>(rectangleWidthResult)}")
 
-    // // let rectangleHeight: Extern<JSRuntime> = rectangleObject.getHeight()
-    // // ->
-    // let rectangleHeightMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(rectangleObject, "getHeight")
-    // let rectangleHeightResult: Extern<JSRuntime> = JSRuntime.evalFunctionCall(rectangleHeightMethod, [])
-    // println("Rectangle height: ${JSRuntime.fromExtern<Float64>(rectangleHeightResult)}")
-
-    // // ---- createRectangle ----
-
-    // // let rectangleObject2: Extern<JSRuntime> = jsModule.createRectangle()
-    // // ->
-    // let createRectangleMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(jsModule, "createRectangle")
-    // let rectangleObject2: Extern<JSRuntime> = JSRuntime.evalFunctionCall(createRectangleMethod, [])
-
-    // // rectangleObject2.width = 42
-    // // ->
-    // JSRuntime.evalAssignment(rectangleObject2, "width", 42.0)
-
-    // // let rectangleWidth2: Extern<JSRuntime> = rectangleObject2.width
-    // // ->
-    // let rectangleWidthResult2: Extern<JSRuntime> = JSRuntime.evalMemberAccess(rectangleObject2, "width")
-    // println("Rectangle width: ${JSRuntime.fromExtern<Float64>(rectangleWidthResult2)}")
-
-    // // let rectangleHeight2: Extern<JSRuntime> = rectangleObject2.height
-    // // ->
-    // let rectangleHeightResult2: Extern<JSRuntime> = JSRuntime.evalMemberAccess(rectangleObject2, "height")
-    // println("Rectangle height: ${JSRuntime.fromExtern<Float64>(rectangleHeightResult2)}")
-
-    // // let area = rectangleObject2.area()
-    // // ->
-    // let areaMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(rectangleObject2, "area")
-    // let areaResult: Extern<JSRuntime> = JSRuntime.evalFunctionCall(areaMethod, [])
-    // println("Rectangle area: ${JSRuntime.fromExtern<Float64>(areaResult)}")
-
-    // // let perimeter = rectangleObject2.perimeter()
-    // // ->
-    // let perimeterMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(rectangleObject2, "perimeter")
-    // let perimeterResult: Extern<JSRuntime> = JSRuntime.evalFunctionCall(perimeterMethod, [])
-    // println("Rectangle perimeter: ${JSRuntime.fromExtern<Float64>(perimeterResult)}")
-
+func print_all_shapes(shapes: ArrayList<Shape>) {
+    for (shape in shapes) {
+        println("Shape: ${shape.name()}, area: ${shape.area()}, perimeter: ${shape.perimeter()}")
+    }
 }
