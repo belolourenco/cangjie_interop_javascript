@@ -11,4 +11,4 @@
   package-configuration = {}
 
 [dependencies]
-
+  extern = { git = "https://github.com/belolourenco/cangjie_extern.git", branch = "main" }
