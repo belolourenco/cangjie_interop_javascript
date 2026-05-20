@@ -6,6 +6,7 @@ import interop_javascript.jsinterop.JSEvalResult
 import interop_javascript.jsinterop.JSFunction
 import interop_javascript.jsinterop.JSModule
 import interop_javascript.jsinterop.JSRuntime as JSNativeRuntime
+import std.collection.HashMap
 import std.math.numeric.BigInt
 
 private func externContentToJSValue(content: Any): JSValue {
@@ -108,6 +109,7 @@ private func quickJS2Cangjie<T>(value: JSValue, cjType: Option<T>) {
 
 abstract public class JSRuntime <: Runtime<JSRuntime> {
     private static let runtime = JSNativeRuntime(".")
+    private static let moduleCache = HashMap<String, JSModule>()
 
     private static func toJSBigInt(value: String): JSEvalResult {
         let result = runtime.evalScript("${value}n")
@@ -178,7 +180,14 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
     }
 
     public static func getModule(moduleName: String): Extern<JSRuntime> {
+        match (moduleCache.get(moduleName)) {
+            case Some(module) =>
+                return Extern<JSRuntime>(module)
+            case None => ()
+        }
+
         let module = runtime.importModule(moduleName)
+        moduleCache.add(moduleName, module)
         Extern<JSRuntime>(module)
     }
 
