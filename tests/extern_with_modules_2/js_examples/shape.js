@@ -57,11 +57,11 @@ export class Rectangle extends Shape {
   }
 
   area() {
-    return this.width * this.height;
+    return Math.abs(this.width) * Math.abs(this.height);
   }
 
   perimeter() {
-    return this.width * 2.0 + this.height * 2.0;
+    return Math.abs(this.width) * 2.0 + Math.abs(this.height) * 2.0;
   }
 }
 
@@ -77,11 +77,12 @@ export class Circle extends Shape {
   }
 
   area() {
-    return Math.PI * this.radius * this.radius;
+    const radius = Math.abs(this.radius);
+    return Math.PI * radius * radius;
   }
 
   perimeter() {
-    return Math.PI * this.radius * 2.0;
+    return Math.PI * Math.abs(this.radius) * 2.0;
   }
 }
 
@@ -98,7 +99,7 @@ export class Triangle extends Shape {
     const bc = this.b.distanceTo(this.c);
     const ca = this.c.distanceTo(this.a);
     const s = (ab + bc + ca) / 2.0;
-    return Math.sqrt(s * (s - ab) * (s - bc) * (s - ca));
+    return Math.sqrt(Math.max(0.0, s * (s - ab) * (s - bc) * (s - ca)));
   }
 
   perimeter() {

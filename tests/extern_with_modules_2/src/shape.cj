@@ -11,12 +11,22 @@ public class Point {
     public let blob: Extern<JSRuntime>
 
     public init(x: Float64, y: Float64) {
+        println("Point constructor called with x: ${x}, y: ${y}")
         let pointConstructor: Extern<JSRuntime> = JSRuntime.evalMemberAccess(shapeModule(), "Point")
         blob = JSRuntime.evalFunctionCall(pointConstructor, [x, y])
     }
 
+    // Shallow copy constructor!
     public init(extern: Extern<JSRuntime>) {
+        println("Point extern constructor called")
         blob = extern
+    }
+
+    // Deep copy constructor!
+    public init(other: Point) {
+        println("Point copy constructor called with x: ${other.x}, y: ${other.y}")
+        let pointConstructor: Extern<JSRuntime> = JSRuntime.evalMemberAccess(shapeModule(), "Point")
+        blob = JSRuntime.evalFunctionCall(pointConstructor, [other.x, other.y])
     }
 
     public mut prop x: Float64 {
@@ -55,6 +65,7 @@ public class Rectangle <: Shape {
     public let blob: Extern<JSRuntime>
 
     public init(topLeft: Point, bottomRight: Point) {
+        println("Rectangle constructor called with topLeft: ${topLeft.x}, ${topLeft.y} and bottomRight: ${bottomRight.x}, ${bottomRight.y}")
         let rectangleConstructor: Extern<JSRuntime> = JSRuntime.evalMemberAccess(shapeModule(), "Rectangle")
         blob = JSRuntime.evalFunctionCall(rectangleConstructor, [topLeft.blob, bottomRight.blob])
     }
