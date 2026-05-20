@@ -5,6 +5,8 @@ CJC = cjc
 CC = clang
 AR = ar
 RANLIB = ranlib
+CANGJIE_RUNTIME_LIB_DIR := $(shell find "$$CANGJIE_HOME/runtime/lib" -name libcangjie-runtime.dylib -exec dirname {} \; 2>/dev/null | head -n 1)
+TEST_BINARY_ENV := DYLD_LIBRARY_PATH=$(CANGJIE_RUNTIME_LIB_DIR):$$DYLD_LIBRARY_PATH
 
 BUILD_DIR := build
 NATIVE_BUILD_DIR := $(BUILD_DIR)/native
@@ -35,7 +37,9 @@ ifeq ($(shell uname -s),Darwin)
 COMMON_CFLAGS += -mmacosx-version-min=12.0
 endif
 
-.PHONY: native cangjie build test extern-primitive-types-build extern-primitive-types-test extern-with-modules-1-build extern-with-modules-1-test extern-with-modules-2-build extern-with-modules-2-test clean
+.PHONY: all native cangjie build test extern-primitive-types-build extern-primitive-types-test extern-with-modules-1-build extern-with-modules-1-test extern-with-modules-2-build extern-with-modules-2-test clean
+
+all: test
 
 native: $(NATIVE_LIB)
 
@@ -54,19 +58,19 @@ extern-primitive-types-build: native
 	cd $(EXTERN_PRIMITIVE_TYPES_DIR) && $(CJPM) build
 
 extern-primitive-types-test: extern-primitive-types-build
-	cd $(EXTERN_PRIMITIVE_TYPES_DIR) && $(CJPM) run
+	cd $(EXTERN_PRIMITIVE_TYPES_DIR) && $(TEST_BINARY_ENV) target/release/bin/main
 
 extern-with-modules-1-build: native
 	cd $(EXTERN_WITH_MODULES_1_DIR) && $(CJPM) build
 
 extern-with-modules-1-test: extern-with-modules-1-build
-	cd $(EXTERN_WITH_MODULES_1_DIR) && $(CJPM) run
+	cd $(EXTERN_WITH_MODULES_1_DIR) && $(TEST_BINARY_ENV) target/release/bin/main
 
 extern-with-modules-2-build: native
 	cd $(EXTERN_WITH_MODULES_2_DIR) && $(CJPM) build
 
 extern-with-modules-2-test: extern-with-modules-2-build
-	cd $(EXTERN_WITH_MODULES_2_DIR) && $(CJPM) run
+	cd $(EXTERN_WITH_MODULES_2_DIR) && $(TEST_BINARY_ENV) target/release/bin/main
 
 clean:
 	rm -rf $(BUILD_DIR) target
