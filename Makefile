@@ -23,6 +23,7 @@ PACKAGE_BUILD_DIR := target/release/interop_javascript
 SMOKE_SOURCES := tests/smoke/main.cj $(filter-out tests/smoke/main.cj,$(wildcard tests/smoke/*.cj))
 SMOKE_BIN := $(SMOKE_BUILD_DIR)/smoke
 EXTERN_PRIMITIVE_TYPES_DIR := tests/extern_primitive_types
+EXTERN_WITH_MODULES_DIR := tests/extern_with_modules
 
 COMMON_CFLAGS := -std=c11 -O2 -g -Wall -Wextra -Wno-unused-parameter
 COMMON_CFLAGS += -Wno-sign-compare -Wno-missing-field-initializers
@@ -33,7 +34,7 @@ ifeq ($(shell uname -s),Darwin)
 COMMON_CFLAGS += -mmacosx-version-min=12.0
 endif
 
-.PHONY: native cangjie build test extern-primitive-types-build extern-primitive-types-test clean
+.PHONY: native cangjie build test extern-primitive-types-build extern-primitive-types-test extern-with-modules-build extern-with-modules-test clean
 
 native: $(NATIVE_LIB)
 
@@ -45,6 +46,7 @@ build: native cangjie $(SMOKE_BIN)
 test: build
 	$(SMOKE_BIN)
 	$(MAKE) extern-primitive-types-test
+	$(MAKE) extern-with-modules-test
 
 extern-primitive-types-build: native
 	cd $(EXTERN_PRIMITIVE_TYPES_DIR) && $(CJPM) build
@@ -52,9 +54,16 @@ extern-primitive-types-build: native
 extern-primitive-types-test: extern-primitive-types-build
 	cd $(EXTERN_PRIMITIVE_TYPES_DIR) && $(CJPM) run
 
+extern-with-modules-build: native
+	cd $(EXTERN_WITH_MODULES_DIR) && $(CJPM) build
+
+extern-with-modules-test: extern-with-modules-build
+	cd $(EXTERN_WITH_MODULES_DIR) && $(CJPM) run
+
 clean:
 	rm -rf $(BUILD_DIR) target
 	rm -rf $(EXTERN_PRIMITIVE_TYPES_DIR)/target $(EXTERN_PRIMITIVE_TYPES_DIR)/build-script-cache
+	rm -rf $(EXTERN_WITH_MODULES_DIR)/target $(EXTERN_WITH_MODULES_DIR)/build-script-cache
 
 $(NATIVE_LIB): $(NATIVE_OBJECTS)
 	mkdir -p $(@D)

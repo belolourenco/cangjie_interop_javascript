@@ -1,0 +1,4 @@
+version = 0
+
+[requires]
+  extern = {git = "https://github.com/belolourenco/cangjie_extern.git", commitId = "3452a901ddb2d43a715855356eefbecbcc915b68", branch = "main"}
