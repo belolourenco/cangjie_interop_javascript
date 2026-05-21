@@ -50,8 +50,9 @@ interop_javascript/
       errors.cj
   native/
     quickjs/
-    quickjs_bridge.h
-    quickjs_bridge.c
+    bridge/
+      quickjs_bridge.h
+      quickjs_bridge.c
   build/
     native/
   tests/
@@ -101,7 +102,7 @@ Engine-specific details should be hidden behind a small native C bridge instead 
 - Retain/release JavaScript values.
 - Extract exception details.
 
-For QuickJS, implement this through `native/quickjs_bridge.c` and `native/quickjs_bridge.h` instead of binding directly to the full QuickJS C API from Cangjie. The Cangjie API can call this narrow FFI surface directly from `jsinterop`.
+For QuickJS, implement this through `native/bridge/quickjs_bridge.c` and `native/bridge/quickjs_bridge.h` instead of binding directly to the full QuickJS C API from Cangjie. The Cangjie API can call this narrow FFI surface directly from `jsinterop`.
 
 ## Build System Plan
 
@@ -111,7 +112,7 @@ Build responsibilities:
 
 - `Makefile` orchestrates native build, Cangjie build, tests, and cleanup.
 - `cjpm.toml` owns Cangjie package metadata and Cangjie compilation.
-- The native build compiles QuickJS and `native/quickjs_bridge.c`.
+- The native build compiles QuickJS and `native/bridge/quickjs_bridge.c`.
 - The native build produces a static archive at `build/native/libquickjs_bridge.a`.
 - The Cangjie package build compiles the public Cangjie API and FFI declarations.
 - Final executables that use the native bridge link against both the Cangjie package archive and `build/native/libquickjs_bridge.a`.
@@ -166,7 +167,7 @@ Turn the Phase 1 skeleton bridge into the first real QuickJS execution path. Thi
 
 Native bridge responsibilities:
 
-- Extend the skeleton `quickjs_bridge.c` and `quickjs_bridge.h`.
+- Extend the skeleton `native/bridge/quickjs_bridge.c` and `native/bridge/quickjs_bridge.h`.
 - Add opaque handles for runtime/context ownership, for example `quickjs_runtime_handle`.
 - Implement runtime/context creation and cleanup in the native bridge.
 - Implement script-source evaluation for plain JavaScript source text.

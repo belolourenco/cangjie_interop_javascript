@@ -17,7 +17,10 @@ QUICKJS_VERSION := $(shell cat $(QUICKJS_DIR)/VERSION)
 QUICKJS_SOURCES := quickjs.c dtoa.c libregexp.c libunicode.c cutils.c quickjs-libc.c
 QUICKJS_OBJECTS := $(addprefix $(NATIVE_BUILD_DIR)/quickjs/,$(QUICKJS_SOURCES:.c=.o))
 
-NATIVE_BRIDGE_OBJECT := $(NATIVE_BUILD_DIR)/quickjs_bridge.o
+NATIVE_BRIDGE_DIR := native/bridge
+NATIVE_BRIDGE_SOURCE := $(NATIVE_BRIDGE_DIR)/quickjs_bridge.c
+NATIVE_BRIDGE_HEADER := $(NATIVE_BRIDGE_DIR)/quickjs_bridge.h
+NATIVE_BRIDGE_OBJECT := $(NATIVE_BUILD_DIR)/bridge/quickjs_bridge.o
 NATIVE_OBJECTS := $(QUICKJS_OBJECTS) $(NATIVE_BRIDGE_OBJECT)
 NATIVE_LIB := $(NATIVE_BUILD_DIR)/libquickjs_bridge.a
 
@@ -87,7 +90,7 @@ $(NATIVE_BUILD_DIR)/quickjs/%.o: $(QUICKJS_DIR)/%.c
 	mkdir -p $(@D)
 	$(CC) $(COMMON_CFLAGS) -I$(QUICKJS_DIR) -c $< -o $@
 
-$(NATIVE_BRIDGE_OBJECT): native/quickjs_bridge.c native/quickjs_bridge.h $(QUICKJS_DIR)/quickjs.h
+$(NATIVE_BRIDGE_OBJECT): $(NATIVE_BRIDGE_SOURCE) $(NATIVE_BRIDGE_HEADER) $(QUICKJS_DIR)/quickjs.h
 	mkdir -p $(@D)
 	$(CC) $(COMMON_CFLAGS) -Inative -c $< -o $@
 
