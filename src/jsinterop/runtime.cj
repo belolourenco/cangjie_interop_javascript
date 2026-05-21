@@ -571,6 +571,10 @@ public class JSFunction {
         this.value = value
     }
 
+    public func close(): Unit {
+        value.close()
+    }
+
     func runtimeError(): String {
         unsafe { quickjs_value_runtime_last_error(value.nativeHandle()).toString() }
     }
