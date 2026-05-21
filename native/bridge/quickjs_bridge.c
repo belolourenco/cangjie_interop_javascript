@@ -6,14 +6,22 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define QUICKJS_VALUE_UNDEFINED 0
-#define QUICKJS_VALUE_NULL 1
-#define QUICKJS_VALUE_BOOL 2
-#define QUICKJS_VALUE_NUMBER 3
-#define QUICKJS_VALUE_STRING 4
-#define QUICKJS_VALUE_BIGINT 5
-#define QUICKJS_VALUE_OBJECT 6
-#define QUICKJS_VALUE_FUNCTION 7
+enum {
+    QUICKJS_VALUE_UNDEFINED,
+    QUICKJS_VALUE_NULL,
+    QUICKJS_VALUE_BOOL,
+    QUICKJS_VALUE_NUMBER,
+    QUICKJS_VALUE_STRING,
+    QUICKJS_VALUE_BIGINT,
+    QUICKJS_VALUE_OBJECT,
+    QUICKJS_VALUE_FUNCTION,
+};
+
+struct quickjs_module_cache_entry {
+    char *path;
+    JSValue namespace_value;
+    struct quickjs_module_cache_entry *next;
+};
 
 struct quickjs_runtime_handle {
     JSRuntime *runtime;
@@ -28,54 +36,66 @@ struct quickjs_value_handle {
     JSValue value;
 };
 
-struct quickjs_module_cache_entry {
-    char *path;
-    JSValue namespace_value;
-    struct quickjs_module_cache_entry *next;
-};
-
-static char *quickjs_bridge_copy_string(const char *message) {
-    if (message == NULL) {
-        message = "unknown QuickJS error";
+static char *copy_string(const char *value) {
+    if (value == NULL) {
+        value = "unknown QuickJS error";
     }
 
-    size_t length = strlen(message);
+    size_t length = strlen(value);
     char *copy = (char *)malloc(length + 1);
-    if (copy == NULL) {
-        return NULL;
+    if (copy != NULL) {
+        memcpy(copy, value, length + 1);
     }
-
-    memcpy(copy, message, length + 1);
     return copy;
 }
 
-static void quickjs_runtime_set_error(quickjs_runtime_handle *handle, const char *message) {
-    if (handle == NULL) {
+static void set_error(quickjs_runtime_handle *runtime, const char *message) {
+    if (runtime == NULL) {
         return;
     }
 
-    free(handle->last_error);
-    handle->last_error = quickjs_bridge_copy_string(message);
+    free(runtime->last_error);
+    runtime->last_error = copy_string(message);
 }
 
-static void quickjs_runtime_clear_error(quickjs_runtime_handle *handle) {
-    if (handle == NULL) {
+static void clear_error(quickjs_runtime_handle *runtime) {
+    if (runtime == NULL) {
         return;
     }
 
-    free(handle->last_error);
-    handle->last_error = NULL;
+    free(runtime->last_error);
+    runtime->last_error = NULL;
 }
 
-static quickjs_value_handle *quickjs_value_handle_create(quickjs_runtime_handle *runtime, JSValue value) {
+static void capture_exception(quickjs_runtime_handle *runtime) {
     if (runtime == NULL || runtime->context == NULL) {
+        return;
+    }
+
+    JSValue exception = JS_GetException(runtime->context);
+    const char *message = JS_ToCString(runtime->context, exception);
+    set_error(runtime, message);
+    JS_FreeCString(runtime->context, message);
+    JS_FreeValue(runtime->context, exception);
+}
+
+static int valid_runtime(quickjs_runtime_handle *runtime) {
+    return runtime != NULL && runtime->runtime != NULL && runtime->context != NULL;
+}
+
+static int valid_value(quickjs_value_handle *value) {
+    return value != NULL && valid_runtime(value->runtime);
+}
+
+static quickjs_value_handle *new_value_handle(quickjs_runtime_handle *runtime, JSValue value) {
+    if (!valid_runtime(runtime)) {
         return NULL;
     }
 
     quickjs_value_handle *handle = (quickjs_value_handle *)calloc(1, sizeof(quickjs_value_handle));
     if (handle == NULL) {
         JS_FreeValue(runtime->context, value);
-        quickjs_runtime_set_error(runtime, "failed to allocate JavaScript value handle");
+        set_error(runtime, "failed to allocate JavaScript value handle");
         return NULL;
     }
 
@@ -84,7 +104,7 @@ static quickjs_value_handle *quickjs_value_handle_create(quickjs_runtime_handle 
     return handle;
 }
 
-static unsigned char *quickjs_bridge_read_file(const char *path, size_t *length) {
+static unsigned char *read_file(const char *path, size_t *length) {
     FILE *file = fopen(path, "rb");
     if (file == NULL) {
         return NULL;
@@ -95,45 +115,28 @@ static unsigned char *quickjs_bridge_read_file(const char *path, size_t *length)
         return NULL;
     }
 
-    long file_size = ftell(file);
-    if (file_size < 0) {
+    long size = ftell(file);
+    if (size < 0 || fseek(file, 0, SEEK_SET) != 0) {
         fclose(file);
         return NULL;
     }
 
-    if (fseek(file, 0, SEEK_SET) != 0) {
-        fclose(file);
-        return NULL;
-    }
-
-    unsigned char *buffer = (unsigned char *)malloc((size_t)file_size + 1);
+    unsigned char *buffer = (unsigned char *)malloc((size_t)size + 1);
     if (buffer == NULL) {
         fclose(file);
         return NULL;
     }
 
-    size_t read_count = fread(buffer, 1, (size_t)file_size, file);
+    size_t read_count = fread(buffer, 1, (size_t)size, file);
     fclose(file);
-    if (read_count != (size_t)file_size) {
+    if (read_count != (size_t)size) {
         free(buffer);
         return NULL;
     }
 
-    buffer[file_size] = '\0';
-    *length = (size_t)file_size;
+    buffer[size] = '\0';
+    *length = (size_t)size;
     return buffer;
-}
-
-static void quickjs_runtime_capture_exception(quickjs_runtime_handle *handle) {
-    if (handle == NULL || handle->context == NULL) {
-        return;
-    }
-
-    JSValue exception = JS_GetException(handle->context);
-    const char *message = JS_ToCString(handle->context, exception);
-    quickjs_runtime_set_error(handle, message);
-    JS_FreeCString(handle->context, message);
-    JS_FreeValue(handle->context, exception);
 }
 
 quickjs_runtime_handle *quickjs_runtime_create(void) {
@@ -143,14 +146,11 @@ quickjs_runtime_handle *quickjs_runtime_create(void) {
     }
 
     handle->runtime = JS_NewRuntime();
-    if (handle->runtime == NULL) {
-        free(handle);
-        return NULL;
-    }
-
-    handle->context = JS_NewContext(handle->runtime);
+    handle->context = handle->runtime == NULL ? NULL : JS_NewContext(handle->runtime);
     if (handle->context == NULL) {
-        JS_FreeRuntime(handle->runtime);
+        if (handle->runtime != NULL) {
+            JS_FreeRuntime(handle->runtime);
+        }
         free(handle);
         return NULL;
     }
@@ -158,51 +158,22 @@ quickjs_runtime_handle *quickjs_runtime_create(void) {
     return handle;
 }
 
-void quickjs_runtime_destroy(quickjs_runtime_handle *handle) {
-    if (handle == NULL) {
-        return;
-    }
-
-    if (handle->context != NULL) {
-        struct quickjs_module_cache_entry *entry = handle->module_cache;
-        while (entry != NULL) {
-            struct quickjs_module_cache_entry *next = entry->next;
-            JS_FreeValue(handle->context, entry->namespace_value);
-            free(entry->path);
-            free(entry);
-            entry = next;
-        }
-
-        JS_FreeContext(handle->context);
-    }
-    if (handle->runtime != NULL) {
-        JS_FreeRuntime(handle->runtime);
-    }
-
-    free(handle->last_error);
-    free(handle);
-}
-
 const char *quickjs_runtime_last_error(quickjs_runtime_handle *handle) {
-    if (handle == NULL || handle->last_error == NULL) {
-        return "";
-    }
-
-    return handle->last_error;
+    return handle == NULL || handle->last_error == NULL ? "" : handle->last_error;
 }
 
 int64_t quickjs_runtime_enable_std_module(quickjs_runtime_handle *handle) {
-    if (handle == NULL || handle->runtime == NULL || handle->context == NULL) {
+    if (!valid_runtime(handle)) {
         return 1;
     }
     if (handle->std_module_enabled) {
         return 0;
     }
 
-    quickjs_runtime_clear_error(handle);
+    clear_error(handle);
     JS_SetModuleLoaderFunc2(handle->runtime, NULL, js_module_loader, js_module_check_attributes, NULL);
     if (js_init_module_std(handle->context, "std") == NULL) {
-        quickjs_runtime_capture_exception(handle);
+        capture_exception(handle);
         return 1;
     }
 
@@ -211,119 +182,81 @@ int64_t quickjs_runtime_enable_std_module(quickjs_runtime_handle *handle) {
 }
 
 quickjs_value_handle *quickjs_runtime_eval_value(quickjs_runtime_handle *handle, const char *source) {
-    if (handle == NULL || handle->context == NULL) {
+    if (!valid_runtime(handle)) {
         return NULL;
     }
     if (source == NULL) {
-        quickjs_runtime_set_error(handle, "source must not be null");
+        set_error(handle, "source must not be null");
         return NULL;
     }
 
-    quickjs_runtime_clear_error(handle);
-
+    clear_error(handle);
     JSValue value = JS_Eval(handle->context, source, strlen(source), "<eval>", JS_EVAL_TYPE_GLOBAL);
     if (JS_IsException(value)) {
-        quickjs_runtime_capture_exception(handle);
+        capture_exception(handle);
         return NULL;
     }
 
-    return quickjs_value_handle_create(handle, value);
-}
-
-quickjs_value_handle *quickjs_runtime_new_undefined(quickjs_runtime_handle *handle) {
-    quickjs_runtime_clear_error(handle);
-    return quickjs_value_handle_create(handle, JS_UNDEFINED);
-}
-
-quickjs_value_handle *quickjs_runtime_new_null(quickjs_runtime_handle *handle) {
-    quickjs_runtime_clear_error(handle);
-    return quickjs_value_handle_create(handle, JS_NULL);
+    return new_value_handle(handle, value);
 }
 
 quickjs_value_handle *quickjs_runtime_new_bool(quickjs_runtime_handle *handle, int64_t value) {
-    if (handle == NULL || handle->context == NULL) {
+    if (!valid_runtime(handle)) {
         return NULL;
     }
 
-    quickjs_runtime_clear_error(handle);
-    return quickjs_value_handle_create(handle, JS_NewBool(handle->context, value != 0));
+    clear_error(handle);
+    return new_value_handle(handle, JS_NewBool(handle->context, value != 0));
 }
 
 quickjs_value_handle *quickjs_runtime_new_number(quickjs_runtime_handle *handle, double value) {
-    if (handle == NULL || handle->context == NULL) {
+    if (!valid_runtime(handle)) {
         return NULL;
     }
 
-    quickjs_runtime_clear_error(handle);
-    return quickjs_value_handle_create(handle, JS_NewFloat64(handle->context, value));
+    clear_error(handle);
+    return new_value_handle(handle, JS_NewFloat64(handle->context, value));
 }
 
 quickjs_value_handle *quickjs_runtime_new_string(quickjs_runtime_handle *handle, const char *value) {
-    if (handle == NULL || handle->context == NULL) {
+    if (!valid_runtime(handle)) {
         return NULL;
     }
     if (value == NULL) {
-        quickjs_runtime_set_error(handle, "string value must not be null");
+        set_error(handle, "string value must not be null");
         return NULL;
     }
 
-    quickjs_runtime_clear_error(handle);
-    JSValue string_value = JS_NewString(handle->context, value);
-    if (JS_IsException(string_value)) {
-        quickjs_runtime_set_error(handle, "failed to create JavaScript string");
+    clear_error(handle);
+    JSValue js_value = JS_NewString(handle->context, value);
+    if (JS_IsException(js_value)) {
+        capture_exception(handle);
         return NULL;
     }
 
-    return quickjs_value_handle_create(handle, string_value);
-}
-
-int64_t quickjs_runtime_set_global_value(quickjs_runtime_handle *handle, const char *name, quickjs_value_handle *value) {
-    if (handle == NULL || handle->context == NULL) {
-        return 1;
-    }
-    if (name == NULL) {
-        quickjs_runtime_set_error(handle, "global name must not be null");
-        return 1;
-    }
-    if (value == NULL || value->runtime != handle) {
-        quickjs_runtime_set_error(handle, "global value does not belong to this runtime");
-        return 1;
-    }
-
-    quickjs_runtime_clear_error(handle);
-
-    JSValue global = JS_GetGlobalObject(handle->context);
-    int status = JS_SetPropertyStr(handle->context, global, name, JS_DupValue(handle->context, value->value));
-    JS_FreeValue(handle->context, global);
-    if (status < 0) {
-        quickjs_runtime_capture_exception(handle);
-        return 1;
-    }
-
-    return 0;
+    return new_value_handle(handle, js_value);
 }
 
 quickjs_value_handle *quickjs_runtime_import_module(quickjs_runtime_handle *handle, const char *path) {
-    if (handle == NULL || handle->context == NULL) {
+    if (!valid_runtime(handle)) {
         return NULL;
     }
     if (path == NULL) {
-        quickjs_runtime_set_error(handle, "module path must not be null");
+        set_error(handle, "module path must not be null");
         return NULL;
     }
 
-    quickjs_runtime_clear_error(handle);
-
+    clear_error(handle);
     for (struct quickjs_module_cache_entry *entry = handle->module_cache; entry != NULL; entry = entry->next) {
         if (strcmp(entry->path, path) == 0) {
-            return quickjs_value_handle_create(handle, JS_DupValue(handle->context, entry->namespace_value));
+            return new_value_handle(handle, JS_DupValue(handle->context, entry->namespace_value));
         }
     }
 
     size_t source_length = 0;
-    unsigned char *source = quickjs_bridge_read_file(path, &source_length);
+    unsigned char *source = read_file(path, &source_length);
     if (source == NULL) {
-        quickjs_runtime_set_error(handle, "failed to read JavaScript module file");
+        set_error(handle, "failed to read JavaScript module file");
         return NULL;
     }
 
@@ -335,48 +268,50 @@ quickjs_value_handle *quickjs_runtime_import_module(quickjs_runtime_handle *hand
         JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
     free(source);
     if (JS_IsException(compiled)) {
-        quickjs_runtime_capture_exception(handle);
+        capture_exception(handle);
         return NULL;
     }
 
     if (JS_ResolveModule(handle->context, compiled) < 0) {
         JS_FreeValue(handle->context, compiled);
-        quickjs_runtime_capture_exception(handle);
+        capture_exception(handle);
         return NULL;
     }
 
     JSModuleDef *module = (JSModuleDef *)JS_VALUE_GET_PTR(compiled);
     JSValue eval_result = JS_EvalFunction(handle->context, compiled);
     if (JS_IsException(eval_result)) {
-        quickjs_runtime_capture_exception(handle);
+        capture_exception(handle);
         return NULL;
     }
     JS_FreeValue(handle->context, eval_result);
 
     JSValue namespace_value = JS_GetModuleNamespace(handle->context, module);
     if (JS_IsException(namespace_value)) {
-        quickjs_runtime_capture_exception(handle);
+        capture_exception(handle);
         return NULL;
     }
 
     struct quickjs_module_cache_entry *entry = (struct quickjs_module_cache_entry *)calloc(1, sizeof(struct quickjs_module_cache_entry));
     if (entry == NULL) {
         JS_FreeValue(handle->context, namespace_value);
-        quickjs_runtime_set_error(handle, "failed to allocate JavaScript module cache entry");
+        set_error(handle, "failed to allocate JavaScript module cache entry");
         return NULL;
     }
-    entry->path = quickjs_bridge_copy_string(path);
+
+    entry->path = copy_string(path);
     if (entry->path == NULL) {
         free(entry);
         JS_FreeValue(handle->context, namespace_value);
-        quickjs_runtime_set_error(handle, "failed to allocate JavaScript module path");
+        set_error(handle, "failed to allocate JavaScript module path");
         return NULL;
     }
+
     entry->namespace_value = JS_DupValue(handle->context, namespace_value);
     entry->next = handle->module_cache;
     handle->module_cache = entry;
 
-    return quickjs_value_handle_create(handle, namespace_value);
+    return new_value_handle(handle, namespace_value);
 }
 
 void quickjs_value_destroy(quickjs_value_handle *handle) {
@@ -384,18 +319,18 @@ void quickjs_value_destroy(quickjs_value_handle *handle) {
         return;
     }
 
-    if (handle->runtime != NULL && handle->runtime->context != NULL) {
+    if (valid_runtime(handle->runtime)) {
         JS_FreeValue(handle->runtime->context, handle->value);
     }
-
     free(handle);
 }
 
 int64_t quickjs_value_kind(quickjs_value_handle *handle) {
-    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
+    if (!valid_value(handle)) {
         return QUICKJS_VALUE_UNDEFINED;
     }
 
+    JSContext *ctx = handle->runtime->context;
     if (JS_IsUndefined(handle->value)) {
         return QUICKJS_VALUE_UNDEFINED;
     }
@@ -411,10 +346,10 @@ int64_t quickjs_value_kind(quickjs_value_handle *handle) {
     if (JS_IsString(handle->value)) {
         return QUICKJS_VALUE_STRING;
     }
-    if (JS_IsBigInt(handle->runtime->context, handle->value)) {
+    if (JS_IsBigInt(ctx, handle->value)) {
         return QUICKJS_VALUE_BIGINT;
     }
-    if (JS_IsFunction(handle->runtime->context, handle->value)) {
+    if (JS_IsFunction(ctx, handle->value)) {
         return QUICKJS_VALUE_FUNCTION;
     }
     if (JS_IsObject(handle->value)) {
@@ -425,51 +360,47 @@ int64_t quickjs_value_kind(quickjs_value_handle *handle) {
 }
 
 int64_t quickjs_value_to_bool(quickjs_value_handle *handle) {
-    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
+    if (!valid_value(handle)) {
         return 0;
     }
 
     int value = JS_ToBool(handle->runtime->context, handle->value);
     if (value < 0) {
-        quickjs_runtime_set_error(handle->runtime, "failed to convert JavaScript value to boolean");
+        set_error(handle->runtime, "failed to convert JavaScript value to boolean");
         return 0;
     }
-
     return value ? 1 : 0;
 }
 
 double quickjs_value_to_number(quickjs_value_handle *handle) {
-    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
+    if (!valid_value(handle)) {
         return 0.0;
     }
 
     double value = 0.0;
     if (JS_ToFloat64(handle->runtime->context, &value, handle->value) != 0) {
-        quickjs_runtime_set_error(handle->runtime, "failed to convert JavaScript value to number");
+        set_error(handle->runtime, "failed to convert JavaScript value to number");
         return 0.0;
     }
-
     return value;
 }
 
 const char *quickjs_value_to_string(quickjs_value_handle *handle) {
-    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
+    if (!valid_value(handle)) {
         return NULL;
     }
 
     const char *value = JS_ToCString(handle->runtime->context, handle->value);
     if (value == NULL) {
-        quickjs_runtime_set_error(handle->runtime, "failed to convert JavaScript value to string");
+        set_error(handle->runtime, "failed to convert JavaScript value to string");
         return NULL;
     }
 
-    char *copy = quickjs_bridge_copy_string(value);
+    char *copy = copy_string(value);
     JS_FreeCString(handle->runtime->context, value);
     if (copy == NULL) {
-        quickjs_runtime_set_error(handle->runtime, "failed to allocate JavaScript string result");
-        return NULL;
+        set_error(handle->runtime, "failed to allocate JavaScript string result");
     }
-
     return copy;
 }
 
@@ -477,101 +408,72 @@ void quickjs_bridge_free_string(const char *value) {
     free((void *)value);
 }
 
-const char *quickjs_value_runtime_last_error(quickjs_value_handle *handle) {
-    if (handle == NULL || handle->runtime == NULL) {
-        return "";
-    }
-
-    return quickjs_runtime_last_error(handle->runtime);
-}
-
 int64_t quickjs_value_is_array(quickjs_value_handle *handle) {
-    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
-        return 0;
-    }
-
-    return JS_IsArray(handle->runtime->context, handle->value) ? 1 : 0;
-}
-
-int64_t quickjs_value_is_function(quickjs_value_handle *handle) {
-    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
-        return 0;
-    }
-
-    return JS_IsFunction(handle->runtime->context, handle->value) ? 1 : 0;
+    return valid_value(handle) && JS_IsArray(handle->runtime->context, handle->value) ? 1 : 0;
 }
 
 int64_t quickjs_value_array_length(quickjs_value_handle *handle) {
-    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
+    if (!valid_value(handle)) {
         return -1;
     }
 
-    JSContext *ctx = handle->runtime->context;
-    JSValue length_value = JS_GetPropertyStr(ctx, handle->value, "length");
-    if (JS_IsException(length_value)) {
-        quickjs_runtime_set_error(handle->runtime, "failed to read JavaScript array length");
+    JSValue length = JS_GetPropertyStr(handle->runtime->context, handle->value, "length");
+    if (JS_IsException(length)) {
+        capture_exception(handle->runtime);
         return -1;
     }
 
-    double length_number = 0.0;
-    if (JS_ToFloat64(ctx, &length_number, length_value) != 0) {
-        JS_FreeValue(ctx, length_value);
-        quickjs_runtime_set_error(handle->runtime, "failed to convert JavaScript array length");
+    double number = 0.0;
+    int status = JS_ToFloat64(handle->runtime->context, &number, length);
+    JS_FreeValue(handle->runtime->context, length);
+    if (status != 0) {
+        set_error(handle->runtime, "failed to convert JavaScript array length");
         return -1;
     }
 
-    JS_FreeValue(ctx, length_value);
-    return (int64_t)length_number;
+    return (int64_t)number;
 }
 
 quickjs_value_handle *quickjs_value_get_property(quickjs_value_handle *handle, const char *name) {
-    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
+    if (!valid_value(handle)) {
         return NULL;
     }
     if (name == NULL) {
-        quickjs_runtime_set_error(handle->runtime, "property name must not be null");
+        set_error(handle->runtime, "property name must not be null");
         return NULL;
     }
 
-    quickjs_runtime_clear_error(handle->runtime);
+    clear_error(handle->runtime);
     JSValue value = JS_GetPropertyStr(handle->runtime->context, handle->value, name);
     if (JS_IsException(value)) {
-        JSValue exception = JS_GetException(handle->runtime->context);
-        const char *message = JS_ToCString(handle->runtime->context, exception);
-        quickjs_runtime_set_error(handle->runtime, message);
-        JS_FreeCString(handle->runtime->context, message);
-        JS_FreeValue(handle->runtime->context, exception);
+        capture_exception(handle->runtime);
         return NULL;
     }
 
-    return quickjs_value_handle_create(handle->runtime, value);
+    return new_value_handle(handle->runtime, value);
 }
 
 int64_t quickjs_value_set_property(quickjs_value_handle *handle, const char *name, quickjs_value_handle *value) {
-    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
+    if (!valid_value(handle)) {
         return 1;
     }
     if (name == NULL) {
-        quickjs_runtime_set_error(handle->runtime, "property name must not be null");
+        set_error(handle->runtime, "property name must not be null");
         return 1;
     }
     if (value == NULL || value->runtime != handle->runtime) {
-        quickjs_runtime_set_error(handle->runtime, "property value does not belong to this runtime");
+        set_error(handle->runtime, "property value does not belong to this runtime");
         return 1;
     }
 
-    quickjs_runtime_clear_error(handle->runtime);
+    clear_error(handle->runtime);
     int status = JS_SetPropertyStr(
         handle->runtime->context,
         handle->value,
         name,
         JS_DupValue(handle->runtime->context, value->value));
     if (status < 0) {
-        JSValue exception = JS_GetException(handle->runtime->context);
-        const char *message = JS_ToCString(handle->runtime->context, exception);
-        quickjs_runtime_set_error(handle->runtime, message);
-        JS_FreeCString(handle->runtime->context, message);
-        JS_FreeValue(handle->runtime->context, exception);
+        capture_exception(handle->runtime);
         return 1;
     }
 
@@ -579,190 +481,40 @@ int64_t quickjs_value_set_property(quickjs_value_handle *handle, const char *nam
 }
 
 quickjs_value_handle *quickjs_value_get_index(quickjs_value_handle *handle, int64_t index) {
-    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
+    if (!valid_value(handle)) {
         return NULL;
     }
     if (index < 0) {
-        quickjs_runtime_set_error(handle->runtime, "array index must not be negative");
+        set_error(handle->runtime, "array index must not be negative");
         return NULL;
     }
 
-    quickjs_runtime_clear_error(handle->runtime);
+    clear_error(handle->runtime);
     JSValue value = JS_GetPropertyUint32(handle->runtime->context, handle->value, (uint32_t)index);
     if (JS_IsException(value)) {
-        JSValue exception = JS_GetException(handle->runtime->context);
-        const char *message = JS_ToCString(handle->runtime->context, exception);
-        quickjs_runtime_set_error(handle->runtime, message);
-        JS_FreeCString(handle->runtime->context, message);
-        JS_FreeValue(handle->runtime->context, exception);
+        capture_exception(handle->runtime);
         return NULL;
     }
 
-    return quickjs_value_handle_create(handle->runtime, value);
+    return new_value_handle(handle->runtime, value);
 }
 
-int64_t quickjs_value_set_index(quickjs_value_handle *handle, int64_t index, quickjs_value_handle *value) {
-    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
+static int fill_argv(quickjs_value_handle *owner, quickjs_value_handle **args, int num_args, JSValueConst *argv) {
+    if (!valid_value(owner)) {
         return 1;
     }
-    if (index < 0) {
-        quickjs_runtime_set_error(handle->runtime, "array index must not be negative");
+    if (num_args < 0) {
+        set_error(owner->runtime, "argument count must not be negative");
         return 1;
     }
-    if (value == NULL || value->runtime != handle->runtime) {
-        quickjs_runtime_set_error(handle->runtime, "array value does not belong to this runtime");
-        return 1;
-    }
-
-    quickjs_runtime_clear_error(handle->runtime);
-    int status = JS_SetPropertyUint32(
-        handle->runtime->context,
-        handle->value,
-        (uint32_t)index,
-        JS_DupValue(handle->runtime->context, value->value));
-    if (status < 0) {
-        JSValue exception = JS_GetException(handle->runtime->context);
-        const char *message = JS_ToCString(handle->runtime->context, exception);
-        quickjs_runtime_set_error(handle->runtime, message);
-        JS_FreeCString(handle->runtime->context, message);
-        JS_FreeValue(handle->runtime->context, exception);
+    if (num_args > 0 && args == NULL) {
+        set_error(owner->runtime, "argument array must not be null");
         return 1;
     }
 
-    return 0;
-}
-
-int64_t quickjs_value_key_count(quickjs_value_handle *handle) {
-    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
-        return -1;
-    }
-
-    JSPropertyEnum *properties = NULL;
-    uint32_t property_count = 0;
-    if (JS_GetOwnPropertyNames(
-            handle->runtime->context,
-            &properties,
-            &property_count,
-            handle->value,
-            JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) != 0) {
-        quickjs_runtime_set_error(handle->runtime, "failed to enumerate JavaScript object keys");
-        return -1;
-    }
-
-    JS_FreePropertyEnum(handle->runtime->context, properties, property_count);
-    return (int64_t)property_count;
-}
-
-const char *quickjs_value_key_at(quickjs_value_handle *handle, int64_t index) {
-    if (handle == NULL || handle->runtime == NULL || handle->runtime->context == NULL) {
-        return NULL;
-    }
-    if (index < 0) {
-        quickjs_runtime_set_error(handle->runtime, "key index must not be negative");
-        return NULL;
-    }
-
-    JSPropertyEnum *properties = NULL;
-    uint32_t property_count = 0;
-    if (JS_GetOwnPropertyNames(
-            handle->runtime->context,
-            &properties,
-            &property_count,
-            handle->value,
-            JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) != 0) {
-        quickjs_runtime_set_error(handle->runtime, "failed to enumerate JavaScript object keys");
-        return NULL;
-    }
-
-    if ((uint64_t)index >= property_count) {
-        JS_FreePropertyEnum(handle->runtime->context, properties, property_count);
-        quickjs_runtime_set_error(handle->runtime, "key index is out of range");
-        return NULL;
-    }
-
-    const char *atom_string = JS_AtomToCString(handle->runtime->context, properties[index].atom);
-    if (atom_string == NULL) {
-        JS_FreePropertyEnum(handle->runtime->context, properties, property_count);
-        quickjs_runtime_set_error(handle->runtime, "failed to convert JavaScript object key");
-        return NULL;
-    }
-
-    char *copy = quickjs_bridge_copy_string(atom_string);
-    JS_FreeCString(handle->runtime->context, atom_string);
-    JS_FreePropertyEnum(handle->runtime->context, properties, property_count);
-    if (copy == NULL) {
-        quickjs_runtime_set_error(handle->runtime, "failed to allocate JavaScript object key");
-        return NULL;
-    }
-
-    return copy;
-}
-
-static quickjs_value_handle *quickjs_value_call_internal(
-    quickjs_value_handle *function,
-    JSValueConst this_value,
-    int argc,
-    JSValueConst *argv) {
-    if (function == NULL || function->runtime == NULL || function->runtime->context == NULL) {
-        return NULL;
-    }
-
-    quickjs_runtime_clear_error(function->runtime);
-    JSValue result = JS_Call(function->runtime->context, function->value, this_value, argc, argv);
-    if (JS_IsException(result)) {
-        JSValue exception = JS_GetException(function->runtime->context);
-        const char *message = JS_ToCString(function->runtime->context, exception);
-        quickjs_runtime_set_error(function->runtime, message);
-        JS_FreeCString(function->runtime->context, message);
-        JS_FreeValue(function->runtime->context, exception);
-        return NULL;
-    }
-
-    return quickjs_value_handle_create(function->runtime, result);
-}
-
-static quickjs_value_handle *quickjs_value_construct_internal(
-    quickjs_value_handle *constructor,
-    int argc,
-    JSValueConst *argv) {
-    if (constructor == NULL || constructor->runtime == NULL || constructor->runtime->context == NULL) {
-        return NULL;
-    }
-
-    quickjs_runtime_clear_error(constructor->runtime);
-    JSValue result = JS_CallConstructor(constructor->runtime->context, constructor->value, argc, argv);
-    if (JS_IsException(result)) {
-        JSValue exception = JS_GetException(constructor->runtime->context);
-        const char *message = JS_ToCString(constructor->runtime->context, exception);
-        quickjs_runtime_set_error(constructor->runtime, message);
-        JS_FreeCString(constructor->runtime->context, message);
-        JS_FreeValue(constructor->runtime->context, exception);
-        return NULL;
-    }
-
-    return quickjs_value_handle_create(constructor->runtime, result);
-}
-
-static int quickjs_value_fill_argv(
-    quickjs_value_handle *owner,
-    quickjs_value_handle **args,
-    int numArgs,
-    JSValueConst *argv) {
-    if (owner == NULL || owner->runtime == NULL) {
-        return 1;
-    }
-    if (numArgs < 0) {
-        quickjs_runtime_set_error(owner->runtime, "argument count must not be negative");
-        return 1;
-    }
-    if (numArgs > 0 && args == NULL) {
-        quickjs_runtime_set_error(owner->runtime, "argument array must not be null");
-        return 1;
-    }
-
-    for (int i = 0; i < numArgs; i++) {
+    for (int i = 0; i < num_args; i++) {
         if (args[i] == NULL || args[i]->runtime != owner->runtime) {
-            quickjs_runtime_set_error(owner->runtime, "argument does not belong to this runtime");
+            set_error(owner->runtime, "argument does not belong to this runtime");
             return 1;
         }
         argv[i] = args[i]->value;
@@ -771,44 +523,70 @@ static int quickjs_value_fill_argv(
     return 0;
 }
 
-quickjs_value_handle *quickjs_value_call(quickjs_value_handle *function, quickjs_value_handle **args, int numArgs) {
-    if (function == NULL) {
+quickjs_value_handle *quickjs_value_call(
+    quickjs_value_handle *function,
+    quickjs_value_handle *this_value,
+    quickjs_value_handle **args,
+    int num_args) {
+    if (!valid_value(function)) {
+        return NULL;
+    }
+    if (this_value != NULL && this_value->runtime != function->runtime) {
+        set_error(function->runtime, "this value does not belong to this runtime");
+        return NULL;
+    }
+    if (num_args < 0) {
+        set_error(function->runtime, "argument count must not be negative");
         return NULL;
     }
 
-    JSValueConst argv[numArgs > 0 ? numArgs : 1];
-    if (quickjs_value_fill_argv(function, args, numArgs, argv) != 0) {
+    JSValueConst argv[num_args > 0 ? num_args : 1];
+    if (fill_argv(function, args, num_args, argv) != 0) {
         return NULL;
     }
 
-    return quickjs_value_call_internal(function, JS_UNDEFINED, numArgs, numArgs > 0 ? argv : NULL);
+    clear_error(function->runtime);
+    JSValue result = JS_Call(
+        function->runtime->context,
+        function->value,
+        this_value == NULL ? JS_UNDEFINED : this_value->value,
+        num_args,
+        num_args > 0 ? argv : NULL);
+    if (JS_IsException(result)) {
+        capture_exception(function->runtime);
+        return NULL;
+    }
+
+    return new_value_handle(function->runtime, result);
 }
 
-quickjs_value_handle *quickjs_value_call_method(quickjs_value_handle *function, quickjs_value_handle *this_value, quickjs_value_handle **args, int numArgs) {
-    if (function == NULL || this_value == NULL) {
+quickjs_value_handle *quickjs_value_construct(
+    quickjs_value_handle *constructor,
+    quickjs_value_handle **args,
+    int num_args) {
+    if (!valid_value(constructor)) {
         return NULL;
     }
-    if (this_value->runtime != function->runtime) {
-        quickjs_runtime_set_error(function->runtime, "this value does not belong to this runtime");
-        return NULL;
-    }
-
-    JSValueConst argv[numArgs > 0 ? numArgs : 1];
-    if (quickjs_value_fill_argv(function, args, numArgs, argv) != 0) {
-        return NULL;
-    }
-
-    return quickjs_value_call_internal(function, this_value->value, numArgs, numArgs > 0 ? argv : NULL);
-}
-
-quickjs_value_handle *quickjs_value_construct(quickjs_value_handle *constructor, quickjs_value_handle **args, int numArgs) {
-    if (constructor == NULL) {
+    if (num_args < 0) {
+        set_error(constructor->runtime, "argument count must not be negative");
         return NULL;
     }
 
-    JSValueConst argv[numArgs > 0 ? numArgs : 1];
-    if (quickjs_value_fill_argv(constructor, args, numArgs, argv) != 0) {
+    JSValueConst argv[num_args > 0 ? num_args : 1];
+    if (fill_argv(constructor, args, num_args, argv) != 0) {
         return NULL;
     }
-    return quickjs_value_construct_internal(constructor, numArgs, numArgs > 0 ? argv : NULL);
+
+    clear_error(constructor->runtime);
+    JSValue result = JS_CallConstructor(
+        constructor->runtime->context,
+        constructor->value,
+        num_args,
+        num_args > 0 ? argv : NULL);
+    if (JS_IsException(result)) {
+        capture_exception(constructor->runtime);
+        return NULL;
+    }
+
+    return new_value_handle(constructor->runtime, result);
 }

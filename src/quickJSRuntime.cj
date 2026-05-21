@@ -4,7 +4,6 @@ import extern.*
 import std.math.numeric.BigInt
 
 foreign func quickjs_runtime_create(): CPointer<Unit>
-foreign func quickjs_runtime_destroy(handle: CPointer<Unit>): Unit
 foreign func quickjs_runtime_last_error(handle: CPointer<Unit>): CString
 foreign func quickjs_runtime_enable_std_module(handle: CPointer<Unit>): Int64
 
@@ -20,15 +19,12 @@ foreign func quickjs_value_to_bool(handle: CPointer<Unit>): Int64
 foreign func quickjs_value_to_number(handle: CPointer<Unit>): Float64
 foreign func quickjs_value_to_string(handle: CPointer<Unit>): CString
 foreign func quickjs_bridge_free_string(value: CString): Unit
-foreign func quickjs_value_runtime_last_error(handle: CPointer<Unit>): CString
 foreign func quickjs_value_is_array(handle: CPointer<Unit>): Int64
-foreign func quickjs_value_is_function(handle: CPointer<Unit>): Int64
 foreign func quickjs_value_array_length(handle: CPointer<Unit>): Int64
 foreign func quickjs_value_get_property(handle: CPointer<Unit>, name: CString): CPointer<Unit>
 foreign func quickjs_value_set_property(handle: CPointer<Unit>, name: CString, value: CPointer<Unit>): Int64
 foreign func quickjs_value_get_index(handle: CPointer<Unit>, index: Int64): CPointer<Unit>
-foreign func quickjs_value_call(function: CPointer<Unit>, args: CPointer<CPointer<Unit>>, numArgs: Int32): CPointer<Unit>
-foreign func quickjs_value_call_method(function: CPointer<Unit>, thisValue: CPointer<Unit>, args: CPointer<CPointer<Unit>>, numArgs: Int32): CPointer<Unit>
+foreign func quickjs_value_call(function: CPointer<Unit>, thisValue: CPointer<Unit>, args: CPointer<CPointer<Unit>>, numArgs: Int32): CPointer<Unit>
 foreign func quickjs_value_construct(function: CPointer<Unit>, args: CPointer<CPointer<Unit>>, numArgs: Int32): CPointer<Unit>
 
 private let jsValueBoolKind: Int64 = 2
@@ -69,10 +65,6 @@ private func runtimeError(runtime: CPointer<Unit>): String {
     unsafe { quickjs_runtime_last_error(runtime).toString() }
 }
 
-private func valueRuntimeError(value: CPointer<Unit>): String {
-    unsafe { quickjs_value_runtime_last_error(value).toString() }
-}
-
 private func valueFromRuntimeHandle(runtime: CPointer<Unit>, value: CPointer<Unit>): CPointer<Unit> {
     if (value.isNull()) {
         throw ExternDynamicException(runtimeError(runtime))
@@ -81,9 +73,9 @@ private func valueFromRuntimeHandle(runtime: CPointer<Unit>, value: CPointer<Uni
     value
 }
 
-private func valueFromCallHandle(function: CPointer<Unit>, value: CPointer<Unit>): CPointer<Unit> {
+private func valueFromCallHandle(runtime: CPointer<Unit>, value: CPointer<Unit>): CPointer<Unit> {
     if (value.isNull()) {
-        let message = valueRuntimeError(function)
+        let message = runtimeError(runtime)
         if (message.isEmpty()) {
             throw ExternDynamicException("JavaScript function call failed")
         }
@@ -122,7 +114,7 @@ private func valueIsObject(value: CPointer<Unit>): Bool {
 }
 
 private func valueIsFunction(value: CPointer<Unit>): Bool {
-    valueKind(value) == jsValueFunctionKind || unsafe { quickjs_value_is_function(value) != 0 }
+    valueKind(value) == jsValueFunctionKind
 }
 
 private func valueIsArray(value: CPointer<Unit>): Bool {
@@ -367,27 +359,12 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
         args.map(toJSValue)
     }
 
-    private static func callValue(function: CPointer<Unit>, args: Array<CPointer<Unit>>): CPointer<Unit> {
+    private static func callValue(function: CPointer<Unit>, thisValue: CPointer<Unit>, args: Array<CPointer<Unit>>): CPointer<Unit> {
         let nativeArgs = args
         unsafe {
             let rawNativeArgs = acquireArrayRawData(nativeArgs)
             try {
-                let result = valueFromCallHandle(function, quickjs_value_call(function, rawNativeArgs.pointer, Int32(args.size)))
-                releaseArrayRawData(rawNativeArgs)
-                return result
-            } catch (e: Exception) {
-                releaseArrayRawData(rawNativeArgs)
-                throw e
-            }
-        }
-    }
-
-    private static func callMethod(function: CPointer<Unit>, thisValue: CPointer<Unit>, args: Array<CPointer<Unit>>): CPointer<Unit> {
-        let nativeArgs = args
-        unsafe {
-            let rawNativeArgs = acquireArrayRawData(nativeArgs)
-            try {
-                let result = valueFromCallHandle(function, quickjs_value_call_method(function, thisValue, rawNativeArgs.pointer, Int32(args.size)))
+                let result = valueFromCallHandle(runtime, quickjs_value_call(function, thisValue, rawNativeArgs.pointer, Int32(args.size)))
                 releaseArrayRawData(rawNativeArgs)
                 return result
             } catch (e: Exception) {
@@ -402,7 +379,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
         unsafe {
             let rawNativeArgs = acquireArrayRawData(nativeArgs)
             try {
-                let result = valueFromCallHandle(constructor, quickjs_value_construct(constructor, rawNativeArgs.pointer, Int32(args.size)))
+                let result = valueFromCallHandle(runtime, quickjs_value_construct(constructor, rawNativeArgs.pointer, Int32(args.size)))
                 releaseArrayRawData(rawNativeArgs)
                 return result
             } catch (e: Exception) {
@@ -459,11 +436,11 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
     public static func evalFunctionCall(e: Extern<JSRuntime>, args: Array<Any>): Extern<JSRuntime> {
         match (e.content) {
             case methodAndThis: (CPointer<Unit>, CPointer<Unit>) =>
-                Extern<JSRuntime>(callMethod(methodAndThis[0], methodAndThis[1], toJSValues(args)))
+                Extern<JSRuntime>(callValue(methodAndThis[0], methodAndThis[1], toJSValues(args)))
             case value: CPointer<Unit> =>
                 let jsArgs = toJSValues(args)
                 try {
-                    return Extern<JSRuntime>(callValue(value, jsArgs))
+                    return Extern<JSRuntime>(callValue(value, CPointer<Unit>(), jsArgs))
                 } catch (_) {
                     return Extern<JSRuntime>(constructValue(value, jsArgs))
                 }
