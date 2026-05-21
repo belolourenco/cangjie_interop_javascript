@@ -17,22 +17,22 @@ enum {
     QUICKJS_VALUE_FUNCTION,
 };
 
-struct quickjs_module_cache_entry {
+struct module_cache_entry {
     char *path;
     JSValue namespace_value;
-    struct quickjs_module_cache_entry *next;
+    struct module_cache_entry *next;
 };
 
-struct quickjs_runtime_handle {
+struct runtime_handle {
     JSRuntime *runtime;
     JSContext *context;
     char *last_error;
-    struct quickjs_module_cache_entry *module_cache;
+    struct module_cache_entry *module_cache;
     int std_module_enabled;
 };
 
-struct quickjs_value_handle {
-    quickjs_runtime_handle *runtime;
+struct value_handle {
+    runtime_handle *runtime;
     JSValue value;
 };
 
@@ -49,7 +49,7 @@ static char *copy_string(const char *value) {
     return copy;
 }
 
-static void set_error(quickjs_runtime_handle *runtime, const char *message) {
+static void set_error(runtime_handle *runtime, const char *message) {
     if (runtime == NULL) {
         return;
     }
@@ -58,7 +58,7 @@ static void set_error(quickjs_runtime_handle *runtime, const char *message) {
     runtime->last_error = copy_string(message);
 }
 
-static void clear_error(quickjs_runtime_handle *runtime) {
+static void clear_error(runtime_handle *runtime) {
     if (runtime == NULL) {
         return;
     }
@@ -67,7 +67,7 @@ static void clear_error(quickjs_runtime_handle *runtime) {
     runtime->last_error = NULL;
 }
 
-static void capture_exception(quickjs_runtime_handle *runtime) {
+static void capture_exception(runtime_handle *runtime) {
     if (runtime == NULL || runtime->context == NULL) {
         return;
     }
@@ -79,20 +79,20 @@ static void capture_exception(quickjs_runtime_handle *runtime) {
     JS_FreeValue(runtime->context, exception);
 }
 
-static int valid_runtime(quickjs_runtime_handle *runtime) {
+static int valid_runtime(runtime_handle *runtime) {
     return runtime != NULL && runtime->runtime != NULL && runtime->context != NULL;
 }
 
-static int valid_value(quickjs_value_handle *value) {
+static int valid_value(value_handle *value) {
     return value != NULL && valid_runtime(value->runtime);
 }
 
-static quickjs_value_handle *new_value_handle(quickjs_runtime_handle *runtime, JSValue value) {
+static value_handle *new_value_handle(runtime_handle *runtime, JSValue value) {
     if (!valid_runtime(runtime)) {
         return NULL;
     }
 
-    quickjs_value_handle *handle = (quickjs_value_handle *)calloc(1, sizeof(quickjs_value_handle));
+    value_handle *handle = (value_handle *)calloc(1, sizeof(value_handle));
     if (handle == NULL) {
         JS_FreeValue(runtime->context, value);
         set_error(runtime, "failed to allocate JavaScript value handle");
@@ -139,8 +139,8 @@ static unsigned char *read_file(const char *path, size_t *length) {
     return buffer;
 }
 
-quickjs_runtime_handle *quickjs_runtime_create(void) {
-    quickjs_runtime_handle *handle = (quickjs_runtime_handle *)calloc(1, sizeof(quickjs_runtime_handle));
+runtime_handle *runtime_create(void) {
+    runtime_handle *handle = (runtime_handle *)calloc(1, sizeof(runtime_handle));
     if (handle == NULL) {
         return NULL;
     }
@@ -158,11 +158,11 @@ quickjs_runtime_handle *quickjs_runtime_create(void) {
     return handle;
 }
 
-const char *quickjs_runtime_last_error(quickjs_runtime_handle *handle) {
+const char *runtime_last_error(runtime_handle *handle) {
     return handle == NULL || handle->last_error == NULL ? "" : handle->last_error;
 }
 
-int64_t quickjs_runtime_enable_std_module(quickjs_runtime_handle *handle) {
+int64_t runtime_enable_std_module(runtime_handle *handle) {
     if (!valid_runtime(handle)) {
         return 1;
     }
@@ -181,7 +181,7 @@ int64_t quickjs_runtime_enable_std_module(quickjs_runtime_handle *handle) {
     return 0;
 }
 
-quickjs_value_handle *quickjs_runtime_eval_value(quickjs_runtime_handle *handle, const char *source) {
+value_handle *runtime_eval_value(runtime_handle *handle, const char *source) {
     if (!valid_runtime(handle)) {
         return NULL;
     }
@@ -200,7 +200,7 @@ quickjs_value_handle *quickjs_runtime_eval_value(quickjs_runtime_handle *handle,
     return new_value_handle(handle, value);
 }
 
-quickjs_value_handle *quickjs_runtime_new_bool(quickjs_runtime_handle *handle, int64_t value) {
+value_handle *runtime_new_bool(runtime_handle *handle, int64_t value) {
     if (!valid_runtime(handle)) {
         return NULL;
     }
@@ -209,7 +209,7 @@ quickjs_value_handle *quickjs_runtime_new_bool(quickjs_runtime_handle *handle, i
     return new_value_handle(handle, JS_NewBool(handle->context, value != 0));
 }
 
-quickjs_value_handle *quickjs_runtime_new_number(quickjs_runtime_handle *handle, double value) {
+value_handle *runtime_new_number(runtime_handle *handle, double value) {
     if (!valid_runtime(handle)) {
         return NULL;
     }
@@ -218,7 +218,7 @@ quickjs_value_handle *quickjs_runtime_new_number(quickjs_runtime_handle *handle,
     return new_value_handle(handle, JS_NewFloat64(handle->context, value));
 }
 
-quickjs_value_handle *quickjs_runtime_new_string(quickjs_runtime_handle *handle, const char *value) {
+value_handle *runtime_new_string(runtime_handle *handle, const char *value) {
     if (!valid_runtime(handle)) {
         return NULL;
     }
@@ -237,7 +237,7 @@ quickjs_value_handle *quickjs_runtime_new_string(quickjs_runtime_handle *handle,
     return new_value_handle(handle, js_value);
 }
 
-quickjs_value_handle *quickjs_runtime_import_module(quickjs_runtime_handle *handle, const char *path) {
+value_handle *runtime_import_module(runtime_handle *handle, const char *path) {
     if (!valid_runtime(handle)) {
         return NULL;
     }
@@ -247,7 +247,7 @@ quickjs_value_handle *quickjs_runtime_import_module(quickjs_runtime_handle *hand
     }
 
     clear_error(handle);
-    for (struct quickjs_module_cache_entry *entry = handle->module_cache; entry != NULL; entry = entry->next) {
+    for (struct module_cache_entry *entry = handle->module_cache; entry != NULL; entry = entry->next) {
         if (strcmp(entry->path, path) == 0) {
             return new_value_handle(handle, JS_DupValue(handle->context, entry->namespace_value));
         }
@@ -292,7 +292,7 @@ quickjs_value_handle *quickjs_runtime_import_module(quickjs_runtime_handle *hand
         return NULL;
     }
 
-    struct quickjs_module_cache_entry *entry = (struct quickjs_module_cache_entry *)calloc(1, sizeof(struct quickjs_module_cache_entry));
+    struct module_cache_entry *entry = (struct module_cache_entry *)calloc(1, sizeof(struct module_cache_entry));
     if (entry == NULL) {
         JS_FreeValue(handle->context, namespace_value);
         set_error(handle, "failed to allocate JavaScript module cache entry");
@@ -314,7 +314,7 @@ quickjs_value_handle *quickjs_runtime_import_module(quickjs_runtime_handle *hand
     return new_value_handle(handle, namespace_value);
 }
 
-void quickjs_value_destroy(quickjs_value_handle *handle) {
+void value_destroy(value_handle *handle) {
     if (handle == NULL) {
         return;
     }
@@ -325,7 +325,7 @@ void quickjs_value_destroy(quickjs_value_handle *handle) {
     free(handle);
 }
 
-int64_t quickjs_value_kind(quickjs_value_handle *handle) {
+int64_t value_kind(value_handle *handle) {
     if (!valid_value(handle)) {
         return QUICKJS_VALUE_UNDEFINED;
     }
@@ -359,7 +359,7 @@ int64_t quickjs_value_kind(quickjs_value_handle *handle) {
     return QUICKJS_VALUE_UNDEFINED;
 }
 
-int64_t quickjs_value_to_bool(quickjs_value_handle *handle) {
+int64_t value_to_bool(value_handle *handle) {
     if (!valid_value(handle)) {
         return 0;
     }
@@ -372,7 +372,7 @@ int64_t quickjs_value_to_bool(quickjs_value_handle *handle) {
     return value ? 1 : 0;
 }
 
-double quickjs_value_to_number(quickjs_value_handle *handle) {
+double value_to_number(value_handle *handle) {
     if (!valid_value(handle)) {
         return 0.0;
     }
@@ -385,7 +385,7 @@ double quickjs_value_to_number(quickjs_value_handle *handle) {
     return value;
 }
 
-const char *quickjs_value_to_string(quickjs_value_handle *handle) {
+const char *value_to_string(value_handle *handle) {
     if (!valid_value(handle)) {
         return NULL;
     }
@@ -404,15 +404,15 @@ const char *quickjs_value_to_string(quickjs_value_handle *handle) {
     return copy;
 }
 
-void quickjs_bridge_free_string(const char *value) {
+void bridge_free_string(const char *value) {
     free((void *)value);
 }
 
-int64_t quickjs_value_is_array(quickjs_value_handle *handle) {
+int64_t value_is_array(value_handle *handle) {
     return valid_value(handle) && JS_IsArray(handle->runtime->context, handle->value) ? 1 : 0;
 }
 
-int64_t quickjs_value_array_length(quickjs_value_handle *handle) {
+int64_t value_array_length(value_handle *handle) {
     if (!valid_value(handle)) {
         return -1;
     }
@@ -434,7 +434,7 @@ int64_t quickjs_value_array_length(quickjs_value_handle *handle) {
     return (int64_t)number;
 }
 
-quickjs_value_handle *quickjs_value_get_property(quickjs_value_handle *handle, const char *name) {
+value_handle *value_get_property(value_handle *handle, const char *name) {
     if (!valid_value(handle)) {
         return NULL;
     }
@@ -453,7 +453,7 @@ quickjs_value_handle *quickjs_value_get_property(quickjs_value_handle *handle, c
     return new_value_handle(handle->runtime, value);
 }
 
-int64_t quickjs_value_set_property(quickjs_value_handle *handle, const char *name, quickjs_value_handle *value) {
+int64_t value_set_property(value_handle *handle, const char *name, value_handle *value) {
     if (!valid_value(handle)) {
         return 1;
     }
@@ -480,7 +480,7 @@ int64_t quickjs_value_set_property(quickjs_value_handle *handle, const char *nam
     return 0;
 }
 
-quickjs_value_handle *quickjs_value_get_index(quickjs_value_handle *handle, int64_t index) {
+value_handle *value_get_index(value_handle *handle, int64_t index) {
     if (!valid_value(handle)) {
         return NULL;
     }
@@ -499,7 +499,7 @@ quickjs_value_handle *quickjs_value_get_index(quickjs_value_handle *handle, int6
     return new_value_handle(handle->runtime, value);
 }
 
-static int fill_argv(quickjs_value_handle *owner, quickjs_value_handle **args, int num_args, JSValueConst *argv) {
+static int fill_argv(value_handle *owner, value_handle **args, int num_args, JSValueConst *argv) {
     if (!valid_value(owner)) {
         return 1;
     }
@@ -523,10 +523,10 @@ static int fill_argv(quickjs_value_handle *owner, quickjs_value_handle **args, i
     return 0;
 }
 
-quickjs_value_handle *quickjs_value_call(
-    quickjs_value_handle *function,
-    quickjs_value_handle *this_value,
-    quickjs_value_handle **args,
+value_handle *value_call(
+    value_handle *function,
+    value_handle *this_value,
+    value_handle **args,
     int num_args) {
     if (!valid_value(function)) {
         return NULL;
@@ -560,9 +560,9 @@ quickjs_value_handle *quickjs_value_call(
     return new_value_handle(function->runtime, result);
 }
 
-quickjs_value_handle *quickjs_value_construct(
-    quickjs_value_handle *constructor,
-    quickjs_value_handle **args,
+value_handle *value_construct(
+    value_handle *constructor,
+    value_handle **args,
     int num_args) {
     if (!valid_value(constructor)) {
         return NULL;

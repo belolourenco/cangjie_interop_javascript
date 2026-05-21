@@ -3,29 +3,29 @@ package interop_javascript
 import extern.*
 import std.math.numeric.BigInt
 
-foreign func quickjs_runtime_create(): CPointer<Unit>
-foreign func quickjs_runtime_last_error(handle: CPointer<Unit>): CString
-foreign func quickjs_runtime_enable_std_module(handle: CPointer<Unit>): Int64
+foreign func runtime_create(): CPointer<Unit>
+foreign func runtime_last_error(handle: CPointer<Unit>): CString
+foreign func runtime_enable_std_module(handle: CPointer<Unit>): Int64
 
-foreign func quickjs_runtime_eval_value(handle: CPointer<Unit>, source: CString): CPointer<Unit>
-foreign func quickjs_runtime_new_bool(handle: CPointer<Unit>, value: Int64): CPointer<Unit>
-foreign func quickjs_runtime_new_number(handle: CPointer<Unit>, value: Float64): CPointer<Unit>
-foreign func quickjs_runtime_new_string(handle: CPointer<Unit>, value: CString): CPointer<Unit>
-foreign func quickjs_runtime_import_module(handle: CPointer<Unit>, path: CString): CPointer<Unit>
+foreign func runtime_eval_value(handle: CPointer<Unit>, source: CString): CPointer<Unit>
+foreign func runtime_new_bool(handle: CPointer<Unit>, value: Int64): CPointer<Unit>
+foreign func runtime_new_number(handle: CPointer<Unit>, value: Float64): CPointer<Unit>
+foreign func runtime_new_string(handle: CPointer<Unit>, value: CString): CPointer<Unit>
+foreign func runtime_import_module(handle: CPointer<Unit>, path: CString): CPointer<Unit>
 
-foreign func quickjs_value_destroy(handle: CPointer<Unit>): Unit
-foreign func quickjs_value_kind(handle: CPointer<Unit>): Int64
-foreign func quickjs_value_to_bool(handle: CPointer<Unit>): Int64
-foreign func quickjs_value_to_number(handle: CPointer<Unit>): Float64
-foreign func quickjs_value_to_string(handle: CPointer<Unit>): CString
-foreign func quickjs_bridge_free_string(value: CString): Unit
-foreign func quickjs_value_is_array(handle: CPointer<Unit>): Int64
-foreign func quickjs_value_array_length(handle: CPointer<Unit>): Int64
-foreign func quickjs_value_get_property(handle: CPointer<Unit>, name: CString): CPointer<Unit>
-foreign func quickjs_value_set_property(handle: CPointer<Unit>, name: CString, value: CPointer<Unit>): Int64
-foreign func quickjs_value_get_index(handle: CPointer<Unit>, index: Int64): CPointer<Unit>
-foreign func quickjs_value_call(function: CPointer<Unit>, thisValue: CPointer<Unit>, args: CPointer<CPointer<Unit>>, numArgs: Int32): CPointer<Unit>
-foreign func quickjs_value_construct(function: CPointer<Unit>, args: CPointer<CPointer<Unit>>, numArgs: Int32): CPointer<Unit>
+foreign func value_destroy(handle: CPointer<Unit>): Unit
+foreign func value_kind(handle: CPointer<Unit>): Int64
+foreign func value_to_bool(handle: CPointer<Unit>): Int64
+foreign func value_to_number(handle: CPointer<Unit>): Float64
+foreign func value_to_string(handle: CPointer<Unit>): CString
+foreign func bridge_free_string(value: CString): Unit
+foreign func value_is_array(handle: CPointer<Unit>): Int64
+foreign func value_array_length(handle: CPointer<Unit>): Int64
+foreign func value_get_property(handle: CPointer<Unit>, name: CString): CPointer<Unit>
+foreign func value_set_property(handle: CPointer<Unit>, name: CString, value: CPointer<Unit>): Int64
+foreign func value_get_index(handle: CPointer<Unit>, index: Int64): CPointer<Unit>
+foreign func value_call(function: CPointer<Unit>, thisValue: CPointer<Unit>, args: CPointer<CPointer<Unit>>, numArgs: Int32): CPointer<Unit>
+foreign func value_construct(function: CPointer<Unit>, args: CPointer<CPointer<Unit>>, numArgs: Int32): CPointer<Unit>
 
 private let jsValueBoolKind: Int64 = 2
 private let jsValueNumberKind: Int64 = 3
@@ -35,7 +35,7 @@ private let jsValueObjectKind: Int64 = 6
 private let jsValueFunctionKind: Int64 = 7
 
 private func createRuntime(): CPointer<Unit> {
-    let handle = unsafe { quickjs_runtime_create() }
+    let handle = unsafe { runtime_create() }
     if (handle.isNull()) {
         throw ExternDynamicException("failed to create QuickJS runtime")
     }
@@ -57,12 +57,12 @@ private func ownedCStringToString(value: CString): String {
     }
 
     let result = value.toString()
-    unsafe { quickjs_bridge_free_string(value) }
+    unsafe { bridge_free_string(value) }
     result
 }
 
 private func runtimeError(runtime: CPointer<Unit>): String {
-    unsafe { quickjs_runtime_last_error(runtime).toString() }
+    unsafe { runtime_last_error(runtime).toString() }
 }
 
 private func valueFromRuntimeHandle(runtime: CPointer<Unit>, value: CPointer<Unit>): CPointer<Unit> {
@@ -90,7 +90,7 @@ private func valueKind(value: CPointer<Unit>): Int64 {
         throw ExternDynamicException("JavaScript value handle must not be null")
     }
 
-    unsafe { quickjs_value_kind(value) }
+    unsafe { value_kind(value) }
 }
 
 private func valueIsBool(value: CPointer<Unit>): Bool {
@@ -118,7 +118,7 @@ private func valueIsFunction(value: CPointer<Unit>): Bool {
 }
 
 private func valueIsArray(value: CPointer<Unit>): Bool {
-    unsafe { quickjs_value_is_array(value) != 0 }
+    unsafe { value_is_array(value) != 0 }
 }
 
 private func valueAsBool(value: CPointer<Unit>): Bool {
@@ -126,7 +126,7 @@ private func valueAsBool(value: CPointer<Unit>): Bool {
         throw ExternConversionException("JavaScript value is not a boolean")
     }
 
-    unsafe { quickjs_value_to_bool(value) != 0 }
+    unsafe { value_to_bool(value) != 0 }
 }
 
 private func valueAsFloat64(value: CPointer<Unit>): Float64 {
@@ -134,7 +134,7 @@ private func valueAsFloat64(value: CPointer<Unit>): Float64 {
         throw ExternConversionException("JavaScript value is not a number")
     }
 
-    unsafe { quickjs_value_to_number(value) }
+    unsafe { value_to_number(value) }
 }
 
 private func valueAsString(value: CPointer<Unit>): String {
@@ -142,7 +142,7 @@ private func valueAsString(value: CPointer<Unit>): String {
         throw ExternConversionException("JavaScript value is not a string")
     }
 
-    ownedCStringToString(unsafe { quickjs_value_to_string(value) })
+    ownedCStringToString(unsafe { value_to_string(value) })
 }
 
 private func getProperty(value: CPointer<Unit>, name: String): CPointer<Unit> {
@@ -151,7 +151,7 @@ private func getProperty(value: CPointer<Unit>, name: String): CPointer<Unit> {
     }
 
     let cName = unsafe { LibC.mallocCString(name) }
-    let result = unsafe { quickjs_value_get_property(value, cName) }
+    let result = unsafe { value_get_property(value, cName) }
     unsafe { LibC.free(cName) }
     if (result.isNull()) {
         throw ExternDynamicException("failed to read JavaScript property")
@@ -166,7 +166,7 @@ private func setProperty(target: CPointer<Unit>, name: String, value: CPointer<U
     }
 
     let cName = unsafe { LibC.mallocCString(name) }
-    let status = unsafe { quickjs_value_set_property(target, cName, value) }
+    let status = unsafe { value_set_property(target, cName, value) }
     unsafe { LibC.free(cName) }
     if (status != 0) {
         throw ExternDynamicException("failed to write JavaScript property")
@@ -178,12 +178,12 @@ private func getIndex(value: CPointer<Unit>, index: Int64): CPointer<Unit> {
         throw ExternDynamicException("Expected JavaScript array")
     }
 
-    let length = unsafe { quickjs_value_array_length(value) }
+    let length = unsafe { value_array_length(value) }
     if (index < 0 || index >= length) {
         throw ExternDynamicException("JavaScript array index is out of range")
     }
 
-    let result = unsafe { quickjs_value_get_index(value, index) }
+    let result = unsafe { value_get_index(value, index) }
     if (result.isNull()) {
         throw ExternDynamicException("failed to read JavaScript array index")
     }
@@ -201,9 +201,9 @@ private func externContentToValue(content: Any): CPointer<Unit> {
 
 private func closeExternContent(content: Any): Unit {
     match (content) {
-        case value: CPointer<Unit> => unsafe { quickjs_value_destroy(value) }
-        case module: (String, CPointer<Unit>) => unsafe { quickjs_value_destroy(module[1]) }
-        case methodAndThis: (CPointer<Unit>, CPointer<Unit>) => unsafe { quickjs_value_destroy(methodAndThis[0]) }
+        case value: CPointer<Unit> => unsafe { value_destroy(value) }
+        case module: (String, CPointer<Unit>) => unsafe { value_destroy(module[1]) }
+        case methodAndThis: (CPointer<Unit>, CPointer<Unit>) => unsafe { value_destroy(methodAndThis[0]) }
         case _ => ()
     }
 }
@@ -321,17 +321,17 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
             case handle: CPointer<Unit> =>
                 handle
             case i: Int8 =>
-                valueFromRuntimeHandle(runtime, unsafe { quickjs_runtime_new_number(runtime, Float64(i)) })
+                valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(i)) })
             case i: Int16 =>
-                valueFromRuntimeHandle(runtime, unsafe { quickjs_runtime_new_number(runtime, Float64(i)) })
+                valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(i)) })
             case i: Int32 =>
-                valueFromRuntimeHandle(runtime, unsafe { quickjs_runtime_new_number(runtime, Float64(i)) })
+                valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(i)) })
             case i: Int64 =>
                 toJSBigInt("${i}")
             case i: UInt8 =>
-                valueFromRuntimeHandle(runtime, unsafe { quickjs_runtime_new_number(runtime, Float64(i)) })
+                valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(i)) })
             case i: UInt16 =>
-                valueFromRuntimeHandle(runtime, unsafe { quickjs_runtime_new_number(runtime, Float64(i)) })
+                valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(i)) })
             case i: UInt32 =>
                 toJSBigInt("${i}")
             case i: UInt64 =>
@@ -339,16 +339,16 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
             case i: BigInt =>
                 toJSBigInt("${i}")
             case f: Float16 =>
-                valueFromRuntimeHandle(runtime, unsafe { quickjs_runtime_new_number(runtime, Float64(f)) })
+                valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(f)) })
             case f: Float32 =>
-                valueFromRuntimeHandle(runtime, unsafe { quickjs_runtime_new_number(runtime, Float64(f)) })
+                valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(f)) })
             case f: Float64 =>
-                valueFromRuntimeHandle(runtime, unsafe { quickjs_runtime_new_number(runtime, f) })
+                valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, f) })
             case b: Bool =>
-                valueFromRuntimeHandle(runtime, unsafe { quickjs_runtime_new_bool(runtime, boolAsInt64(b)) })
+                valueFromRuntimeHandle(runtime, unsafe { runtime_new_bool(runtime, boolAsInt64(b)) })
             case s: String =>
                 let cValue = unsafe { LibC.mallocCString(s) }
-                let handle = unsafe { quickjs_runtime_new_string(runtime, cValue) }
+                let handle = unsafe { runtime_new_string(runtime, cValue) }
                 unsafe { LibC.free(cValue) }
                 valueFromRuntimeHandle(runtime, handle)
             case _ => throw ExternConversionException("Unsupported type by JSRuntime")
@@ -364,7 +364,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
         unsafe {
             let rawNativeArgs = acquireArrayRawData(nativeArgs)
             try {
-                let result = valueFromCallHandle(runtime, quickjs_value_call(function, thisValue, rawNativeArgs.pointer, Int32(args.size)))
+                let result = valueFromCallHandle(runtime, value_call(function, thisValue, rawNativeArgs.pointer, Int32(args.size)))
                 releaseArrayRawData(rawNativeArgs)
                 return result
             } catch (e: Exception) {
@@ -379,7 +379,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
         unsafe {
             let rawNativeArgs = acquireArrayRawData(nativeArgs)
             try {
-                let result = valueFromCallHandle(runtime, quickjs_value_construct(constructor, rawNativeArgs.pointer, Int32(args.size)))
+                let result = valueFromCallHandle(runtime, value_construct(constructor, rawNativeArgs.pointer, Int32(args.size)))
                 releaseArrayRawData(rawNativeArgs)
                 return result
             } catch (e: Exception) {
@@ -391,7 +391,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
 
     public static func evalScript(source: String): Extern<JSRuntime> {
         let cSource = unsafe { LibC.mallocCString(source) }
-        let value = unsafe { quickjs_runtime_eval_value(runtime, cSource) }
+        let value = unsafe { runtime_eval_value(runtime, cSource) }
         unsafe { LibC.free(cSource) }
         if (value.isNull()) {
             throw ExternDynamicException(runtimeError(runtime))
@@ -401,7 +401,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
     }
 
     public static func enableStdModule(): Unit {
-        let status = unsafe { quickjs_runtime_enable_std_module(runtime) }
+        let status = unsafe { runtime_enable_std_module(runtime) }
         if (status != 0) {
             throw ExternDynamicException(runtimeError(runtime))
         }
@@ -409,7 +409,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
 
     public static func getModule(moduleName: String): Extern<JSRuntime> {
         let cPath = unsafe { LibC.mallocCString(moduleName) }
-        let namespace = unsafe { quickjs_runtime_import_module(runtime, cPath) }
+        let namespace = unsafe { runtime_import_module(runtime, cPath) }
         unsafe { LibC.free(cPath) }
         if (namespace.isNull()) {
             throw ExternDynamicException(runtimeError(runtime))

@@ -1,35 +1,35 @@
-#ifndef INTEROP_JAVASCRIPT_QUICKJS_BRIDGE_H
-#define INTEROP_JAVASCRIPT_QUICKJS_BRIDGE_H
+#ifndef INTEROP_JAVASCRIPT_BRIDGE_H
+#define INTEROP_JAVASCRIPT_BRIDGE_H
 
 #include <stdint.h>
 
-typedef struct quickjs_runtime_handle quickjs_runtime_handle;
-typedef struct quickjs_value_handle quickjs_value_handle;
+typedef struct runtime_handle runtime_handle;
+typedef struct value_handle value_handle;
 
-quickjs_runtime_handle *quickjs_runtime_create(void);
-const char *quickjs_runtime_last_error(quickjs_runtime_handle *handle);
-int64_t quickjs_runtime_enable_std_module(quickjs_runtime_handle *handle);
+runtime_handle *runtime_create(void);
+const char *runtime_last_error(runtime_handle *handle);
+int64_t runtime_enable_std_module(runtime_handle *handle);
 
-quickjs_value_handle *quickjs_runtime_eval_value(quickjs_runtime_handle *handle, const char *source);
-quickjs_value_handle *quickjs_runtime_new_bool(quickjs_runtime_handle *handle, int64_t value);
-quickjs_value_handle *quickjs_runtime_new_number(quickjs_runtime_handle *handle, double value);
-quickjs_value_handle *quickjs_runtime_new_string(quickjs_runtime_handle *handle, const char *value);
-quickjs_value_handle *quickjs_runtime_import_module(quickjs_runtime_handle *handle, const char *path);
+value_handle *runtime_eval_value(runtime_handle *handle, const char *source);
+value_handle *runtime_new_bool(runtime_handle *handle, int64_t value);
+value_handle *runtime_new_number(runtime_handle *handle, double value);
+value_handle *runtime_new_string(runtime_handle *handle, const char *value);
+value_handle *runtime_import_module(runtime_handle *handle, const char *path);
 
-void quickjs_value_destroy(quickjs_value_handle *handle);
-int64_t quickjs_value_kind(quickjs_value_handle *handle);
-int64_t quickjs_value_to_bool(quickjs_value_handle *handle);
-double quickjs_value_to_number(quickjs_value_handle *handle);
-const char *quickjs_value_to_string(quickjs_value_handle *handle);
-void quickjs_bridge_free_string(const char *value);
+void value_destroy(value_handle *handle);
+int64_t value_kind(value_handle *handle);
+int64_t value_to_bool(value_handle *handle);
+double value_to_number(value_handle *handle);
+const char *value_to_string(value_handle *handle);
+void bridge_free_string(const char *value);
 
-int64_t quickjs_value_is_array(quickjs_value_handle *handle);
-int64_t quickjs_value_array_length(quickjs_value_handle *handle);
-quickjs_value_handle *quickjs_value_get_property(quickjs_value_handle *handle, const char *name);
-int64_t quickjs_value_set_property(quickjs_value_handle *handle, const char *name, quickjs_value_handle *value);
-quickjs_value_handle *quickjs_value_get_index(quickjs_value_handle *handle, int64_t index);
+int64_t value_is_array(value_handle *handle);
+int64_t value_array_length(value_handle *handle);
+value_handle *value_get_property(value_handle *handle, const char *name);
+int64_t value_set_property(value_handle *handle, const char *name, value_handle *value);
+value_handle *value_get_index(value_handle *handle, int64_t index);
 
-quickjs_value_handle *quickjs_value_call(quickjs_value_handle *function, quickjs_value_handle *this_value, quickjs_value_handle **args, int numArgs);
-quickjs_value_handle *quickjs_value_construct(quickjs_value_handle *constructor, quickjs_value_handle **args, int numArgs);
+value_handle *value_call(value_handle *function, value_handle *this_value, value_handle **args, int numArgs);
+value_handle *value_construct(value_handle *constructor, value_handle **args, int numArgs);
 
 #endif
