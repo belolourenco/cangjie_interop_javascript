@@ -24,6 +24,7 @@ foreign func value_array_length(handle: CPointer<Unit>): Int64
 foreign func value_get_property(handle: CPointer<Unit>, name: CString): CPointer<Unit>
 foreign func value_set_property(handle: CPointer<Unit>, name: CString, value: CPointer<Unit>): Int64
 foreign func value_get_index(handle: CPointer<Unit>, index: Int64): CPointer<Unit>
+foreign func value_set_index(handle: CPointer<Unit>, index: Int64, value: CPointer<Unit>): Int64
 foreign func value_call(function: CPointer<Unit>, thisValue: CPointer<Unit>, args: CPointer<CPointer<Unit>>, numArgs: Int32): CPointer<Unit>
 foreign func value_construct(function: CPointer<Unit>, args: CPointer<CPointer<Unit>>, numArgs: Int32): CPointer<Unit>
 
@@ -189,6 +190,30 @@ private func getIndex(value: CPointer<Unit>, index: Int64): CPointer<Unit> {
     }
 
     result
+}
+
+private func setIndex(target: CPointer<Unit>, index: Int64, value: CPointer<Unit>): Unit {
+    if (!valueIsArray(target)) {
+        throw ExternDynamicException("Expected JavaScript array")
+    }
+
+    let status = unsafe { value_set_index(target, index, value) }
+    if (status != 0) {
+        throw ExternDynamicException("failed to write JavaScript array index")
+    }
+}
+
+private func jsIndex(arg: Any): Int64 {
+    match (arg) {
+        case i: Int8 => Int64(i)
+        case i: Int16 => Int64(i)
+        case i: Int32 => Int64(i)
+        case i: Int64 => i
+        case i: UInt8 => Int64(i)
+        case i: UInt16 => Int64(i)
+        case i: UInt32 => Int64(i)
+        case _ => throw ExternConversionException("JavaScript array index must be an integer")
+    }
 }
 
 private func externContentToValue(content: Any): CPointer<Unit> {
@@ -418,7 +443,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
         Extern<JSRuntime>(("module", namespace))
     }
 
-    public static func evalMemberAccess(e: Extern<JSRuntime>, field: String): Extern<JSRuntime> {
+    public static func memberAccess(e: Extern<JSRuntime>, field: String): Extern<JSRuntime> {
         match (e.content) {
             case module: (String, CPointer<Unit>) =>
                 Extern<JSRuntime>(getProperty(module[1], field))
@@ -433,7 +458,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
         }
     }
 
-    public static func evalFunctionCall(e: Extern<JSRuntime>, args: Array<Any>): Extern<JSRuntime> {
+    public static func functionCall(e: Extern<JSRuntime>, args: Array<Any>): Extern<JSRuntime> {
         match (e.content) {
             case methodAndThis: (CPointer<Unit>, CPointer<Unit>) =>
                 Extern<JSRuntime>(callValue(methodAndThis[0], methodAndThis[1], toJSValues(args)))
@@ -448,7 +473,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
         }
     }
 
-    public static func evalAssignment(e: Extern<JSRuntime>, field: String, value: Any): Unit {
+    public static func memberUpdate(e: Extern<JSRuntime>, field: String, value: Any): Unit {
         match (e.content) {
             case target: CPointer<Unit> =>
                 setProperty(target, field, toJSValue(value))
@@ -458,21 +483,20 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
         }
     }
 
-    public static func evalIndexAccess(e: Extern<JSRuntime>, arg: Any): Extern<JSRuntime> {
-        let index = match (arg) {
-            case i: Int8 => Int64(i)
-            case i: Int16 => Int64(i)
-            case i: Int32 => Int64(i)
-            case i: Int64 => i
-            case i: UInt8 => Int64(i)
-            case i: UInt16 => Int64(i)
-            case i: UInt32 => Int64(i)
-            case _ => throw ExternConversionException("JavaScript array index must be an integer")
-        }
-
+    public static func indexAccess(e: Extern<JSRuntime>, arg: Any): Extern<JSRuntime> {
+        let index = jsIndex(arg)
         match (e.content) {
             case value: CPointer<Unit> =>
                 Extern<JSRuntime>(getIndex(value, index))
+            case _ => throw ExternDynamicException("Expected JavaScript array")
+        }
+    }
+
+    public static func indexUpdate(e: Extern<JSRuntime>, arg: Any, value: Any): Unit {
+        let index = jsIndex(arg)
+        match (e.content) {
+            case target: CPointer<Unit> =>
+                setIndex(target, index, toJSValue(value))
             case _ => throw ExternDynamicException("Expected JavaScript array")
         }
     }

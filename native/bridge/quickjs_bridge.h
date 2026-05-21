@@ -28,6 +28,7 @@ int64_t value_array_length(value_handle *handle);
 value_handle *value_get_property(value_handle *handle, const char *name);
 int64_t value_set_property(value_handle *handle, const char *name, value_handle *value);
 value_handle *value_get_index(value_handle *handle, int64_t index);
+int64_t value_set_index(value_handle *handle, int64_t index, value_handle *value);
 
 value_handle *value_call(value_handle *function, value_handle *this_value, value_handle **args, int numArgs);
 value_handle *value_construct(value_handle *constructor, value_handle **args, int numArgs);

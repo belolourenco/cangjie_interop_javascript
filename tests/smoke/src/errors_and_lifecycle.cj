@@ -6,7 +6,7 @@ import interop_javascript.JSRuntime
 func runErrorsAndLifecycleSmoke(): Int64 {
     let throwingFunction: Extern<JSRuntime> = JSRuntime.evalScript("function fail() { throw new Error('function failed') }; fail")
     try {
-        let unexpected: Extern<JSRuntime> = JSRuntime.evalFunctionCall(throwingFunction, [])
+        let unexpected: Extern<JSRuntime> = JSRuntime.functionCall(throwingFunction, [])
         JSRuntime.close(unexpected)
         println("throwing function unexpectedly succeeded")
         return 1
@@ -20,7 +20,7 @@ func runErrorsAndLifecycleSmoke(): Int64 {
 
     let throwingConstructor: Extern<JSRuntime> = JSRuntime.evalScript("class Broken { constructor() { throw new Error('constructor failed') } }; Broken")
     try {
-        let unexpected: Extern<JSRuntime> = JSRuntime.evalFunctionCall(throwingConstructor, [])
+        let unexpected: Extern<JSRuntime> = JSRuntime.functionCall(throwingConstructor, [])
         JSRuntime.close(unexpected)
         println("throwing constructor unexpectedly succeeded")
         return 3

@@ -499,6 +499,33 @@ value_handle *value_get_index(value_handle *handle, int64_t index) {
     return new_value_handle(handle->runtime, value);
 }
 
+int64_t value_set_index(value_handle *handle, int64_t index, value_handle *value) {
+    if (!valid_value(handle)) {
+        return 1;
+    }
+    if (index < 0) {
+        set_error(handle->runtime, "array index must not be negative");
+        return 1;
+    }
+    if (value == NULL || value->runtime != handle->runtime) {
+        set_error(handle->runtime, "array value does not belong to this runtime");
+        return 1;
+    }
+
+    clear_error(handle->runtime);
+    int status = JS_SetPropertyUint32(
+        handle->runtime->context,
+        handle->value,
+        (uint32_t)index,
+        JS_DupValue(handle->runtime->context, value->value));
+    if (status < 0) {
+        capture_exception(handle->runtime);
+        return 1;
+    }
+
+    return 0;
+}
+
 static int fill_argv(value_handle *owner, value_handle **args, int num_args, JSValueConst *argv) {
     if (!valid_value(owner)) {
         return 1;

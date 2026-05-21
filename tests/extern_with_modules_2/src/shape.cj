@@ -12,8 +12,8 @@ public class Point {
 
     public init(x: Float64, y: Float64) {
         println("Point constructor called with x: ${x}, y: ${y}")
-        let pointConstructor: Extern<JSRuntime> = JSRuntime.evalMemberAccess(shapeModule(), "Point")
-        blob = JSRuntime.evalFunctionCall(pointConstructor, [x, y])
+        let pointConstructor: Extern<JSRuntime> = JSRuntime.memberAccess(shapeModule(), "Point")
+        blob = JSRuntime.functionCall(pointConstructor, [x, y])
     }
 
     // Shallow copy constructor!
@@ -25,33 +25,33 @@ public class Point {
     // Deep copy constructor!
     public init(other: Point) {
         println("Point copy constructor called with x: ${other.x}, y: ${other.y}")
-        let pointConstructor: Extern<JSRuntime> = JSRuntime.evalMemberAccess(shapeModule(), "Point")
-        blob = JSRuntime.evalFunctionCall(pointConstructor, [other.x, other.y])
+        let pointConstructor: Extern<JSRuntime> = JSRuntime.memberAccess(shapeModule(), "Point")
+        blob = JSRuntime.functionCall(pointConstructor, [other.x, other.y])
     }
 
     public mut prop x: Float64 {
         get() {
-            let value: Extern<JSRuntime> = JSRuntime.evalMemberAccess(blob, "x")
+            let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "x")
             JSRuntime.fromExtern<Float64>(value)
         }
         set(value) {
-            JSRuntime.evalAssignment(blob, "x", value)
+            JSRuntime.memberUpdate(blob, "x", value)
         }
     }
 
     public mut prop y: Float64 {
         get() {
-            let value: Extern<JSRuntime> = JSRuntime.evalMemberAccess(blob, "y")
+            let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "y")
             JSRuntime.fromExtern<Float64>(value)
         }
         set(value) {
-            JSRuntime.evalAssignment(blob, "y", value)
+            JSRuntime.memberUpdate(blob, "y", value)
         }
     }
 
     public func distanceTo(other: Point): Float64 {
-        let distanceToMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(blob, "distanceTo")
-        let result: Extern<JSRuntime> = JSRuntime.evalFunctionCall(distanceToMethod, [other.blob])
+        let distanceToMethod: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "distanceTo")
+        let result: Extern<JSRuntime> = JSRuntime.functionCall(distanceToMethod, [other.blob])
         JSRuntime.fromExtern<Float64>(result)
     }
 }
@@ -61,20 +61,20 @@ public interface Shape {
     func getBlob(): Extern<JSRuntime>
 
     func name(): String {
-        let nameMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(getBlob(), "name")
-        let result: Extern<JSRuntime> = JSRuntime.evalFunctionCall(nameMethod, [])
+        let nameMethod: Extern<JSRuntime> = JSRuntime.memberAccess(getBlob(), "name")
+        let result: Extern<JSRuntime> = JSRuntime.functionCall(nameMethod, [])
         JSRuntime.fromExtern<String>(result)
     }
 
     func area(): Float64 {
-        let areaMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(getBlob(), "area")
-        let result: Extern<JSRuntime> = JSRuntime.evalFunctionCall(areaMethod, [])
+        let areaMethod: Extern<JSRuntime> = JSRuntime.memberAccess(getBlob(), "area")
+        let result: Extern<JSRuntime> = JSRuntime.functionCall(areaMethod, [])
         JSRuntime.fromExtern<Float64>(result)
     }
 
     func perimeter(): Float64 {
-        let perimeterMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(getBlob(), "perimeter")
-        let result: Extern<JSRuntime> = JSRuntime.evalFunctionCall(perimeterMethod, [])
+        let perimeterMethod: Extern<JSRuntime> = JSRuntime.memberAccess(getBlob(), "perimeter")
+        let result: Extern<JSRuntime> = JSRuntime.functionCall(perimeterMethod, [])
         JSRuntime.fromExtern<Float64>(result)
     }
 }
@@ -84,8 +84,8 @@ public class Rectangle <: Shape {
 
     public init(topLeft: Point, bottomRight: Point) {
         println("Rectangle constructor called with topLeft: ${topLeft.x}, ${topLeft.y} and bottomRight: ${bottomRight.x}, ${bottomRight.y}")
-        let rectangleConstructor: Extern<JSRuntime> = JSRuntime.evalMemberAccess(shapeModule(), "Rectangle")
-        blob = JSRuntime.evalFunctionCall(rectangleConstructor, [topLeft.blob, bottomRight.blob])
+        let rectangleConstructor: Extern<JSRuntime> = JSRuntime.memberAccess(shapeModule(), "Rectangle")
+        blob = JSRuntime.functionCall(rectangleConstructor, [topLeft.blob, bottomRight.blob])
     }
 
     public init(extern: Extern<JSRuntime>) {
@@ -98,41 +98,41 @@ public class Rectangle <: Shape {
 
     public mut prop topLeft: Point {
         get() {
-            let value: Extern<JSRuntime> = JSRuntime.evalMemberAccess(blob, "topLeft")
+            let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "topLeft")
             Point(value)
         }
         set(value) {
-            JSRuntime.evalAssignment(blob, "topLeft", value.blob)
+            JSRuntime.memberUpdate(blob, "topLeft", value.blob)
         }
     }
 
     public mut prop bottomRight: Point {
         get() {
-            let value: Extern<JSRuntime> = JSRuntime.evalMemberAccess(blob, "bottomRight")
+            let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "bottomRight")
             Point(value)
         }
         set(value) {
-            JSRuntime.evalAssignment(blob, "bottomRight", value.blob)
+            JSRuntime.memberUpdate(blob, "bottomRight", value.blob)
         }
     }
 
     public mut prop width: Float64 {
         get() {
-            let value: Extern<JSRuntime> = JSRuntime.evalMemberAccess(blob, "width")
+            let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "width")
             JSRuntime.fromExtern<Float64>(value)
         }
         set(value) {
-            JSRuntime.evalAssignment(blob, "width", value)
+            JSRuntime.memberUpdate(blob, "width", value)
         }
     }
 
     public mut prop height: Float64 {
         get() {
-            let value: Extern<JSRuntime> = JSRuntime.evalMemberAccess(blob, "height")
+            let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "height")
             JSRuntime.fromExtern<Float64>(value)
         }
         set(value) {
-            JSRuntime.evalAssignment(blob, "height", value)
+            JSRuntime.memberUpdate(blob, "height", value)
         }
     }
 }
@@ -141,8 +141,8 @@ public class Circle <: Shape {
     public let blob: Extern<JSRuntime>
 
     public init(center: Point, radius: Float64) {
-        let circleConstructor: Extern<JSRuntime> = JSRuntime.evalMemberAccess(shapeModule(), "Circle")
-        blob = JSRuntime.evalFunctionCall(circleConstructor, [center.blob, radius])
+        let circleConstructor: Extern<JSRuntime> = JSRuntime.memberAccess(shapeModule(), "Circle")
+        blob = JSRuntime.functionCall(circleConstructor, [center.blob, radius])
     }
 
     public init(extern: Extern<JSRuntime>) {
@@ -155,21 +155,21 @@ public class Circle <: Shape {
 
     public mut prop center: Point {
         get() {
-            let value: Extern<JSRuntime> = JSRuntime.evalMemberAccess(blob, "center")
+            let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "center")
             Point(value)
         }
         set(value) {
-            JSRuntime.evalAssignment(blob, "center", value.blob)
+            JSRuntime.memberUpdate(blob, "center", value.blob)
         }
     }
 
     public mut prop radius: Float64 {
         get() {
-            let value: Extern<JSRuntime> = JSRuntime.evalMemberAccess(blob, "radius")
+            let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "radius")
             JSRuntime.fromExtern<Float64>(value)
         }
         set(value) {
-            JSRuntime.evalAssignment(blob, "radius", value)
+            JSRuntime.memberUpdate(blob, "radius", value)
         }
     }
 }
@@ -178,8 +178,8 @@ public class Triangle <: Shape {
     public let blob: Extern<JSRuntime>
 
     public init(a: Point, b: Point, c: Point) {
-        let triangleConstructor: Extern<JSRuntime> = JSRuntime.evalMemberAccess(shapeModule(), "Triangle")
-        blob = JSRuntime.evalFunctionCall(triangleConstructor, [a.blob, b.blob, c.blob])
+        let triangleConstructor: Extern<JSRuntime> = JSRuntime.memberAccess(shapeModule(), "Triangle")
+        blob = JSRuntime.functionCall(triangleConstructor, [a.blob, b.blob, c.blob])
     }
 
     public init(extern: Extern<JSRuntime>) {
@@ -192,31 +192,31 @@ public class Triangle <: Shape {
 
     public mut prop a: Point {
         get() {
-            let value: Extern<JSRuntime> = JSRuntime.evalMemberAccess(blob, "a")
+            let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "a")
             Point(value)
         }
         set(value) {
-            JSRuntime.evalAssignment(blob, "a", value.blob)
+            JSRuntime.memberUpdate(blob, "a", value.blob)
         }
     }
 
     public mut prop b: Point {
         get() {
-            let value: Extern<JSRuntime> = JSRuntime.evalMemberAccess(blob, "b")
+            let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "b")
             Point(value)
         }
         set(value) {
-            JSRuntime.evalAssignment(blob, "b", value.blob)
+            JSRuntime.memberUpdate(blob, "b", value.blob)
         }
     }
 
     public mut prop c: Point {
         get() {
-            let value: Extern<JSRuntime> = JSRuntime.evalMemberAccess(blob, "c")
+            let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "c")
             Point(value)
         }
         set(value) {
-            JSRuntime.evalAssignment(blob, "c", value.blob)
+            JSRuntime.memberUpdate(blob, "c", value.blob)
         }
     }
 }

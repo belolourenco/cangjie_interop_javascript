@@ -9,17 +9,17 @@ func runLoadModulesSmoke(): Int64 {
 
     let module: Extern<JSRuntime> = JSRuntime.getModule("js_examples/ok/shape_module.js")
 
-    let lookup: Extern<JSRuntime> = JSRuntime.evalMemberAccess(module, "lookup")
-    let siteValue: Extern<JSRuntime> = JSRuntime.evalFunctionCall(lookup, [47.6205, -122.3493])
-    let siteName: Extern<JSRuntime> = JSRuntime.evalMemberAccess(siteValue, "name")
+    let lookup: Extern<JSRuntime> = JSRuntime.memberAccess(module, "lookup")
+    let siteValue: Extern<JSRuntime> = JSRuntime.functionCall(lookup, [47.6205, -122.3493])
+    let siteName: Extern<JSRuntime> = JSRuntime.memberAccess(siteValue, "name")
     if (JSRuntime.fromExtern<String>(siteName) != "Space Needle") {
         println("module function returned unexpected object")
         return 1
     }
     JSRuntime.close(siteName)
 
-    let coordinatesValue: Extern<JSRuntime> = JSRuntime.evalMemberAccess(siteValue, "coordinates")
-    let longitude: Extern<JSRuntime> = JSRuntime.evalIndexAccess(coordinatesValue, 0)
+    let coordinatesValue: Extern<JSRuntime> = JSRuntime.memberAccess(siteValue, "coordinates")
+    let longitude: Extern<JSRuntime> = JSRuntime.indexAccess(coordinatesValue, 0)
     if (JSRuntime.fromExtern<Float64>(longitude) != -122.3493) {
         println("module function returned unexpected longitude")
         return 2
@@ -29,10 +29,10 @@ func runLoadModulesSmoke(): Int64 {
     JSRuntime.close(siteValue)
     JSRuntime.close(lookup)
 
-    let rectangleClass: Extern<JSRuntime> = JSRuntime.evalMemberAccess(module, "Rectangle")
-    let instance: Extern<JSRuntime> = JSRuntime.evalFunctionCall(rectangleClass, [Int32(6), Int32(7)])
-    let areaMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(instance, "area")
-    let area: Extern<JSRuntime> = JSRuntime.evalFunctionCall(areaMethod, [])
+    let rectangleClass: Extern<JSRuntime> = JSRuntime.memberAccess(module, "Rectangle")
+    let instance: Extern<JSRuntime> = JSRuntime.functionCall(rectangleClass, [Int32(6), Int32(7)])
+    let areaMethod: Extern<JSRuntime> = JSRuntime.memberAccess(instance, "area")
+    let area: Extern<JSRuntime> = JSRuntime.functionCall(areaMethod, [])
     if (JSRuntime.fromExtern<Float64>(area) != 42.0) {
         println("module class export did not work")
         return 3
@@ -42,9 +42,9 @@ func runLoadModulesSmoke(): Int64 {
     JSRuntime.close(instance)
     JSRuntime.close(rectangleClass)
 
-    let marker: Extern<JSRuntime> = JSRuntime.evalMemberAccess(module, "moduleMarker")
+    let marker: Extern<JSRuntime> = JSRuntime.memberAccess(module, "moduleMarker")
     let cachedModule: Extern<JSRuntime> = JSRuntime.getModule("js_examples/ok/shape_module.js")
-    let cachedMarker: Extern<JSRuntime> = JSRuntime.evalMemberAccess(cachedModule, "moduleMarker")
+    let cachedMarker: Extern<JSRuntime> = JSRuntime.memberAccess(cachedModule, "moduleMarker")
     if (JSRuntime.fromExtern<Float64>(marker) != JSRuntime.fromExtern<Float64>(cachedMarker)) {
         println("module cache did not preserve evaluated namespace")
         return 4
@@ -54,8 +54,8 @@ func runLoadModulesSmoke(): Int64 {
     JSRuntime.close(marker)
 
     try {
-        let nonFunction: Extern<JSRuntime> = JSRuntime.evalMemberAccess(module, "moduleMarker")
-        let unexpected: Extern<JSRuntime> = JSRuntime.evalFunctionCall(nonFunction, [])
+        let nonFunction: Extern<JSRuntime> = JSRuntime.memberAccess(module, "moduleMarker")
+        let unexpected: Extern<JSRuntime> = JSRuntime.functionCall(nonFunction, [])
         JSRuntime.close(unexpected)
         JSRuntime.close(nonFunction)
         println("module call unexpectedly accepted a non-function")
