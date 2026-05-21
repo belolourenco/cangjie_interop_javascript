@@ -1,145 +1,70 @@
 package interop_javascript_smoke
 
-import interop_javascript.jsinterop.*
+import extern.Extern
+import interop_javascript.JSRuntime
 
 func runLoadModulesSmoke(): Int64 {
-    let runtime = JSRuntime(".")
-    runtime.enableStdModule()
-    runtime.enableStdModule()
+    JSRuntime.enableStdModule()
+    JSRuntime.enableStdModule()
 
-    let module = runtime.importModule("tests/smoke/js_examples/ok/shape_module.js")
-    let keys = module.keys()
-    var sawLookup = false
-    var sawRectangle = false
-    var sawMarker = false
-    for (key in keys) {
-        if (key == "lookup") {
-            sawLookup = true
-        }
-        if (key == "Rectangle") {
-            sawRectangle = true
-        }
-        if (key == "moduleMarker") {
-            sawMarker = true
-        }
-    }
-    if (!sawLookup || !sawRectangle || !sawMarker) {
-        println("module namespace missing expected exports")
+    let module: Extern<JSRuntime> = JSRuntime.getModule("tests/smoke/js_examples/ok/shape_module.js")
+
+    let lookup: Extern<JSRuntime> = JSRuntime.evalMemberAccess(module, "lookup")
+    let siteValue: Extern<JSRuntime> = JSRuntime.evalFunctionCall(lookup, [47.6205, -122.3493])
+    let siteName: Extern<JSRuntime> = JSRuntime.evalMemberAccess(siteValue, "name")
+    if (JSRuntime.fromExtern<String>(siteName) != "Space Needle") {
+        println("module function returned unexpected object")
         return 1
     }
+    JSRuntime.close(siteName)
 
-    let lookupValue = module.get("lookup")
-    let lookup = lookupValue.asFunction()
-    let lookupLat = JSValue.float64(runtime, 47.6205)
-    let lookupLong = JSValue.float64(runtime, -122.3493)
-    let siteValue = lookup.call([lookupLat, lookupLong])
-    let site = siteValue.asObject()
-    let siteName = site.get("name")
-    if (siteName.asString() != "Space Needle") {
-        println("module function returned unexpected object")
+    let coordinatesValue: Extern<JSRuntime> = JSRuntime.evalMemberAccess(siteValue, "coordinates")
+    let longitude: Extern<JSRuntime> = JSRuntime.evalIndexAccess(coordinatesValue, 0)
+    if (JSRuntime.fromExtern<Float64>(longitude) != -122.3493) {
+        println("module function returned unexpected longitude")
         return 2
     }
-    siteName.close()
+    JSRuntime.close(longitude)
+    JSRuntime.close(coordinatesValue)
+    JSRuntime.close(siteValue)
+    JSRuntime.close(lookup)
 
-    let coordinatesValue = site.get("coordinates")
-    let coordinates = coordinatesValue.asArray()
-    if (coordinates.length() != 2) {
-        println("module function returned unexpected array")
+    let rectangleClass: Extern<JSRuntime> = JSRuntime.evalMemberAccess(module, "Rectangle")
+    let instance: Extern<JSRuntime> = JSRuntime.evalFunctionCall(rectangleClass, [Int32(6), Int32(7)])
+    let areaMethod: Extern<JSRuntime> = JSRuntime.evalMemberAccess(instance, "area")
+    let area: Extern<JSRuntime> = JSRuntime.evalFunctionCall(areaMethod, [])
+    if (JSRuntime.fromExtern<Float64>(area) != 42.0) {
+        println("module class export did not work")
         return 3
     }
+    JSRuntime.close(area)
+    JSRuntime.close(areaMethod)
+    JSRuntime.close(instance)
+    JSRuntime.close(rectangleClass)
 
-    let longitude = coordinates.get(0)
-    if (longitude.asFloat64() != -122.3493) {
-        println("module function returned unexpected longitude")
+    let marker: Extern<JSRuntime> = JSRuntime.evalMemberAccess(module, "moduleMarker")
+    let cachedModule: Extern<JSRuntime> = JSRuntime.getModule("tests/smoke/js_examples/ok/shape_module.js")
+    let cachedMarker: Extern<JSRuntime> = JSRuntime.evalMemberAccess(cachedModule, "moduleMarker")
+    if (JSRuntime.fromExtern<Float64>(marker) != JSRuntime.fromExtern<Float64>(cachedMarker)) {
+        println("module cache did not preserve evaluated namespace")
         return 4
     }
-    longitude.close()
-    coordinatesValue.close()
-    siteValue.close()
-    lookupLong.close()
-    lookupLat.close()
-    lookupValue.close()
-
-    let rectangleValue = module.get("Rectangle")
-    let rectangleClass = rectangleValue.asFunction()
-    let width = JSValue.int64(runtime, 6)
-    let height = JSValue.int64(runtime, 7)
-    let instance = rectangleClass.construct([width, height])
-    let rectangle = instance.asObject()
-    let areaValue = rectangle.get("area")
-    let areaMethod = areaValue.asFunction()
-    let area = areaMethod.callWithThis(instance, [])
-    if (area.asFloat64() != 42.0) {
-        println("module class export did not work")
-        return 5
-    }
-    area.close()
-    areaValue.close()
-    instance.close()
-    height.close()
-    width.close()
-    rectangleValue.close()
-
-    let marker = module.get("moduleMarker")
-    let cachedModule = runtime.importModule("tests/smoke/js_examples/ok/shape_module.js")
-    let cachedMarker = cachedModule.get("moduleMarker")
-    if (marker.asFloat64() != cachedMarker.asFloat64()) {
-        println("module cache did not preserve evaluated namespace")
-        return 6
-    }
-    cachedMarker.close()
-    cachedModule.close()
-    marker.close()
-
-    if (module.getFloat64("moduleMarker") <= 0.0) {
-        println("module getFloat64 helper returned unexpected marker")
-        return 7
-    }
-
-    let helperLat = JSValue.float64(runtime, 47.6205)
-    let helperLong = JSValue.float64(runtime, -122.3493)
-    let helperSiteValue = module.call("lookup", [helperLat, helperLong])
-    let helperSite = helperSiteValue.asObject()
-    if (helperSite.getString("name") != "Space Needle") {
-        println("module call helper returned unexpected object")
-        return 8
-    }
-    let helperCoordinatesValue = helperSite.getArray("coordinates")
-    let helperCoordinates = helperCoordinatesValue.asArray()
-    if (helperCoordinates.getFloat64(0) != -122.3493) {
-        println("module call helper returned unexpected array")
-        return 9
-    }
-    helperCoordinatesValue.close()
-    helperSiteValue.close()
-    helperLong.close()
-    helperLat.close()
-
-    let constructWidth = JSValue.int64(runtime, 6)
-    let constructHeight = JSValue.int64(runtime, 7)
-    let constructedInstance = module.construct("Rectangle", [constructWidth, constructHeight])
-    let constructedRectangle = constructedInstance.asObject()
-    let constructedArea = constructedRectangle.call("area", [])
-    if (constructedArea.asFloat64() != 42.0) {
-        println("module construct or object call helper failed")
-        return 10
-    }
-    constructedArea.close()
-    constructedInstance.close()
-    constructHeight.close()
-    constructWidth.close()
+    JSRuntime.close(cachedMarker)
+    JSRuntime.close(cachedModule)
+    JSRuntime.close(marker)
 
     try {
-        let unexpected = module.call("moduleMarker", [])
-        unexpected.close()
-        println("module call helper unexpectedly accepted a non-function")
-        return 11
+        let nonFunction: Extern<JSRuntime> = JSRuntime.evalMemberAccess(module, "moduleMarker")
+        let unexpected: Extern<JSRuntime> = JSRuntime.evalFunctionCall(nonFunction, [])
+        JSRuntime.close(unexpected)
+        JSRuntime.close(nonFunction)
+        println("module call unexpectedly accepted a non-function")
+        return 5
     } catch (_) {
         ()
     }
 
-    module.close()
-    runtime.close()
+    JSRuntime.close(module)
 
     println("load_modules ok")
     return 0

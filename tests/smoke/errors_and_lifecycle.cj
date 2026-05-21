@@ -1,15 +1,13 @@
 package interop_javascript_smoke
 
-import interop_javascript.jsinterop.*
+import extern.Extern
+import interop_javascript.JSRuntime
 
 func runErrorsAndLifecycleSmoke(): Int64 {
-    let runtime = JSRuntime(".")
-
-    let throwingFunctionValue = runtime.evalScript("function fail() { throw new Error('function failed') }; fail")
-    let fail = throwingFunctionValue.asFunction()
+    let throwingFunction: Extern<JSRuntime> = JSRuntime.evalScript("function fail() { throw new Error('function failed') }; fail")
     try {
-        let unexpected = fail.call([])
-        unexpected.close()
+        let unexpected: Extern<JSRuntime> = JSRuntime.evalFunctionCall(throwingFunction, [])
+        JSRuntime.close(unexpected)
         println("throwing function unexpectedly succeeded")
         return 1
     } catch (e: Exception) {
@@ -18,13 +16,12 @@ func runErrorsAndLifecycleSmoke(): Int64 {
             return 2
         }
     }
-    throwingFunctionValue.close()
+    JSRuntime.close(throwingFunction)
 
-    let throwingConstructorValue = runtime.evalScript("class Broken { constructor() { throw new Error('constructor failed') } }; Broken")
-    let broken = throwingConstructorValue.asFunction()
+    let throwingConstructor: Extern<JSRuntime> = JSRuntime.evalScript("class Broken { constructor() { throw new Error('constructor failed') } }; Broken")
     try {
-        let unexpected = broken.construct([])
-        unexpected.close()
+        let unexpected: Extern<JSRuntime> = JSRuntime.evalFunctionCall(throwingConstructor, [])
+        JSRuntime.close(unexpected)
         println("throwing constructor unexpectedly succeeded")
         return 3
     } catch (e: Exception) {
@@ -33,11 +30,11 @@ func runErrorsAndLifecycleSmoke(): Int64 {
             return 4
         }
     }
-    throwingConstructorValue.close()
+    JSRuntime.close(throwingConstructor)
 
     try {
-        let unexpected = runtime.importModule("tests/smoke/js_examples/nok/missing_module.js")
-        unexpected.close()
+        let unexpected: Extern<JSRuntime> = JSRuntime.getModule("tests/smoke/js_examples/nok/missing_module.js")
+        JSRuntime.close(unexpected)
         println("missing module unexpectedly loaded")
         return 5
     } catch (e: Exception) {
@@ -48,8 +45,8 @@ func runErrorsAndLifecycleSmoke(): Int64 {
     }
 
     try {
-        let unexpected = runtime.importModule("tests/smoke/js_examples/nok/broken_module.js")
-        unexpected.close()
+        let unexpected: Extern<JSRuntime> = JSRuntime.getModule("tests/smoke/js_examples/nok/broken_module.js")
+        JSRuntime.close(unexpected)
         println("broken module unexpectedly loaded")
         return 7
     } catch (e: Exception) {
@@ -59,27 +56,25 @@ func runErrorsAndLifecycleSmoke(): Int64 {
         }
     }
 
-    let syntaxError = runtime.evalScript("function {")
-    if (syntaxError.isOk()) {
+    try {
+        let unexpected: Extern<JSRuntime> = JSRuntime.evalScript("function {")
+        JSRuntime.close(unexpected)
         println("invalid JavaScript unexpectedly succeeded")
         return 9
+    } catch (e: Exception) {
+        if (e.toString().isEmpty()) {
+            println("missing JavaScript syntax error message")
+            return 10
+        }
     }
-    if (syntaxError.errorMessage().isEmpty()) {
-        println("missing JavaScript syntax error message")
-        return 10
-    }
-    syntaxError.close()
-    runtime.close()
 
     for (_ in 0..100) {
-        let repeatedRuntime = JSRuntime()
-        let result = repeatedRuntime.evalScript("1 + 2")
-        if (!result.isOk() || result.asFloat64() != 3.0) {
+        let result: Extern<JSRuntime> = JSRuntime.evalScript("1 + 2")
+        if (JSRuntime.fromExtern<Float64>(result) != 3.0) {
             println("repeated eval failed")
             return 11
         }
-        result.close()
-        repeatedRuntime.close()
+        JSRuntime.close(result)
     }
 
     println("errors_and_lifecycle ok")

@@ -1,74 +1,46 @@
 package interop_javascript_smoke
 
-import interop_javascript.jsinterop.*
+import extern.Extern
+import interop_javascript.JSRuntime
 
 func runFunctionsSmoke(): Int64 {
-    let runtime = JSRuntime(".")
-
-    let addValue = runtime.evalScript("function add(a, b) { return a + b }; add")
-    if (!addValue.isFunction() || addValue.typeOf() != "function") {
-        println("function eval did not return a function")
+    let add: Extern<JSRuntime> = JSRuntime.evalScript("function add(a, b) { return a + b }; add")
+    let sum: Extern<JSRuntime> = JSRuntime.evalFunctionCall(add, [Int32(2), Int32(3)])
+    if (JSRuntime.fromExtern<Float64>(sum) != 5.0) {
+        println("two-argument function call failed")
         return 1
     }
-    let add = addValue.asFunction()
-    let left = JSValue.int64(runtime, 2)
-    let right = JSValue.int64(runtime, 3)
-    let sum = add.call([left, right])
-    if (!sum.isNumber() || sum.asFloat64() != 5.0) {
-        println("two-argument function call failed")
+    JSRuntime.close(sum)
+    JSRuntime.close(add)
+
+    let fortyTwo: Extern<JSRuntime> = JSRuntime.evalScript("function fortyTwo() { return 42 }; fortyTwo")
+    let fortyTwoResult: Extern<JSRuntime> = JSRuntime.evalFunctionCall(fortyTwo, [])
+    if (JSRuntime.fromExtern<Float64>(fortyTwoResult) != 42.0) {
+        println("zero-argument function call failed")
         return 2
     }
-    sum.close()
-    right.close()
-    left.close()
-    addValue.close()
+    JSRuntime.close(fortyTwoResult)
+    JSRuntime.close(fortyTwo)
 
-    let fortyTwoValue = runtime.evalScript("function fortyTwo() { return 42 }; fortyTwo")
-    let fortyTwo = fortyTwoValue.asFunction()
-    let fortyTwoResult = fortyTwo.call([])
-    if (fortyTwoResult.asFloat64() != 42.0) {
-        println("zero-argument function call failed")
+    let double: Extern<JSRuntime> = JSRuntime.evalScript("function double(x) { return x * 2 }; double")
+    let doubleResult: Extern<JSRuntime> = JSRuntime.evalFunctionCall(double, [Int32(21)])
+    if (JSRuntime.fromExtern<Float64>(doubleResult) != 42.0) {
+        println("one-argument function call failed")
         return 3
     }
-    fortyTwoResult.close()
-    fortyTwoValue.close()
+    JSRuntime.close(doubleResult)
+    JSRuntime.close(double)
 
-    let doubleValue = runtime.evalScript("function double(x) { return x * 2 }; double")
-    let double = doubleValue.asFunction()
-    let doubleArg = JSValue.int64(runtime, 21)
-    let doubleResult = double.call([doubleArg])
-    if (doubleResult.asFloat64() != 42.0) {
-        println("one-argument function call failed")
+    let objectValue: Extern<JSRuntime> = JSRuntime.evalScript("({ base: 10, add(n) { return this.base + n } })")
+    let method: Extern<JSRuntime> = JSRuntime.evalMemberAccess(objectValue, "add")
+    let methodResult: Extern<JSRuntime> = JSRuntime.evalFunctionCall(method, [Int32(5)])
+    if (JSRuntime.fromExtern<Float64>(methodResult) != 15.0) {
+        println("method call did not preserve this value")
         return 4
     }
-    doubleResult.close()
-    doubleArg.close()
-    doubleValue.close()
-
-    let objectValue = runtime.evalScript("({ base: 10, add(n) { return this.base + n } })")
-    let object = objectValue.asObject()
-    let methodValue = object.get("add")
-    let method = methodValue.asFunction()
-    let methodArg = JSValue.int64(runtime, 5)
-    let methodResult = method.callWithThis(objectValue.asValue(), [methodArg])
-    if (methodResult.asFloat64() != 15.0) {
-        println("method call did not preserve this value")
-        return 5
-    }
-    methodResult.close()
-    methodArg.close()
-    methodValue.close()
-
-    let helperArg = JSValue.int64(runtime, 7)
-    let helperResult = object.call("add", [helperArg])
-    if (helperResult.asFloat64() != 17.0) {
-        println("object call helper did not preserve this value")
-        return 6
-    }
-    helperResult.close()
-    helperArg.close()
-    objectValue.close()
-    runtime.close()
+    JSRuntime.close(methodResult)
+    JSRuntime.close(method)
+    JSRuntime.close(objectValue)
 
     println("functions ok")
     return 0

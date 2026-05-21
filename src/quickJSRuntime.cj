@@ -1,121 +1,313 @@
 package interop_javascript
 
 import extern.*
-import interop_javascript.jsinterop.JSValue
-import interop_javascript.jsinterop.JSEvalResult
-import interop_javascript.jsinterop.JSFunction
-import interop_javascript.jsinterop.JSModule
-import interop_javascript.jsinterop.JSRuntime as JSNativeRuntime
 import std.math.numeric.BigInt
 
-private func externContentToJSValue(content: Any): JSValue {
+foreign func quickjs_runtime_create(): CPointer<Unit>
+foreign func quickjs_runtime_destroy(handle: CPointer<Unit>): Unit
+foreign func quickjs_runtime_last_error(handle: CPointer<Unit>): CString
+foreign func quickjs_runtime_enable_std_module(handle: CPointer<Unit>): Int64
+
+foreign func quickjs_runtime_eval_value(handle: CPointer<Unit>, source: CString): CPointer<Unit>
+foreign func quickjs_runtime_new_bool(handle: CPointer<Unit>, value: Int64): CPointer<Unit>
+foreign func quickjs_runtime_new_number(handle: CPointer<Unit>, value: Float64): CPointer<Unit>
+foreign func quickjs_runtime_new_string(handle: CPointer<Unit>, value: CString): CPointer<Unit>
+foreign func quickjs_runtime_import_module(handle: CPointer<Unit>, path: CString): CPointer<Unit>
+
+foreign func quickjs_value_destroy(handle: CPointer<Unit>): Unit
+foreign func quickjs_value_kind(handle: CPointer<Unit>): Int64
+foreign func quickjs_value_to_bool(handle: CPointer<Unit>): Int64
+foreign func quickjs_value_to_number(handle: CPointer<Unit>): Float64
+foreign func quickjs_value_to_string(handle: CPointer<Unit>): CString
+foreign func quickjs_bridge_free_string(value: CString): Unit
+foreign func quickjs_value_runtime_last_error(handle: CPointer<Unit>): CString
+foreign func quickjs_value_is_array(handle: CPointer<Unit>): Int64
+foreign func quickjs_value_is_function(handle: CPointer<Unit>): Int64
+foreign func quickjs_value_array_length(handle: CPointer<Unit>): Int64
+foreign func quickjs_value_get_property(handle: CPointer<Unit>, name: CString): CPointer<Unit>
+foreign func quickjs_value_set_property(handle: CPointer<Unit>, name: CString, value: CPointer<Unit>): Int64
+foreign func quickjs_value_get_index(handle: CPointer<Unit>, index: Int64): CPointer<Unit>
+foreign func quickjs_value_call(function: CPointer<Unit>, args: CPointer<CPointer<Unit>>, numArgs: Int32): CPointer<Unit>
+foreign func quickjs_value_call_method(function: CPointer<Unit>, thisValue: CPointer<Unit>, args: CPointer<CPointer<Unit>>, numArgs: Int32): CPointer<Unit>
+foreign func quickjs_value_construct(function: CPointer<Unit>, args: CPointer<CPointer<Unit>>, numArgs: Int32): CPointer<Unit>
+
+private let jsValueBoolKind: Int64 = 2
+private let jsValueNumberKind: Int64 = 3
+private let jsValueStringKind: Int64 = 4
+private let jsValueBigIntKind: Int64 = 5
+private let jsValueObjectKind: Int64 = 6
+private let jsValueFunctionKind: Int64 = 7
+
+private func createRuntime(): CPointer<Unit> {
+    let handle = unsafe { quickjs_runtime_create() }
+    if (handle.isNull()) {
+        throw ExternDynamicException("failed to create QuickJS runtime")
+    }
+
+    handle
+}
+
+private func boolAsInt64(value: Bool): Int64 {
+    if (value) {
+        1
+    } else {
+        0
+    }
+}
+
+private func ownedCStringToString(value: CString): String {
+    if (value.isNull()) {
+        return ""
+    }
+
+    let result = value.toString()
+    unsafe { quickjs_bridge_free_string(value) }
+    result
+}
+
+private func runtimeError(runtime: CPointer<Unit>): String {
+    unsafe { quickjs_runtime_last_error(runtime).toString() }
+}
+
+private func valueRuntimeError(value: CPointer<Unit>): String {
+    unsafe { quickjs_value_runtime_last_error(value).toString() }
+}
+
+private func valueFromRuntimeHandle(runtime: CPointer<Unit>, value: CPointer<Unit>): CPointer<Unit> {
+    if (value.isNull()) {
+        throw ExternDynamicException(runtimeError(runtime))
+    }
+
+    value
+}
+
+private func valueFromCallHandle(function: CPointer<Unit>, value: CPointer<Unit>): CPointer<Unit> {
+    if (value.isNull()) {
+        let message = valueRuntimeError(function)
+        if (message.isEmpty()) {
+            throw ExternDynamicException("JavaScript function call failed")
+        }
+        throw ExternDynamicException(message)
+    }
+
+    value
+}
+
+private func valueKind(value: CPointer<Unit>): Int64 {
+    if (value.isNull()) {
+        throw ExternDynamicException("JavaScript value handle must not be null")
+    }
+
+    unsafe { quickjs_value_kind(value) }
+}
+
+private func valueIsBool(value: CPointer<Unit>): Bool {
+    valueKind(value) == jsValueBoolKind
+}
+
+private func valueIsNumber(value: CPointer<Unit>): Bool {
+    valueKind(value) == jsValueNumberKind
+}
+
+private func valueIsString(value: CPointer<Unit>): Bool {
+    valueKind(value) == jsValueStringKind
+}
+
+private func valueIsBigInt(value: CPointer<Unit>): Bool {
+    valueKind(value) == jsValueBigIntKind
+}
+
+private func valueIsObject(value: CPointer<Unit>): Bool {
+    valueKind(value) == jsValueObjectKind
+}
+
+private func valueIsFunction(value: CPointer<Unit>): Bool {
+    valueKind(value) == jsValueFunctionKind || unsafe { quickjs_value_is_function(value) != 0 }
+}
+
+private func valueIsArray(value: CPointer<Unit>): Bool {
+    unsafe { quickjs_value_is_array(value) != 0 }
+}
+
+private func valueAsBool(value: CPointer<Unit>): Bool {
+    if (!valueIsBool(value)) {
+        throw ExternConversionException("JavaScript value is not a boolean")
+    }
+
+    unsafe { quickjs_value_to_bool(value) != 0 }
+}
+
+private func valueAsFloat64(value: CPointer<Unit>): Float64 {
+    if (!valueIsNumber(value)) {
+        throw ExternConversionException("JavaScript value is not a number")
+    }
+
+    unsafe { quickjs_value_to_number(value) }
+}
+
+private func valueAsString(value: CPointer<Unit>): String {
+    if (!valueIsString(value) && !valueIsBigInt(value)) {
+        throw ExternConversionException("JavaScript value is not a string")
+    }
+
+    ownedCStringToString(unsafe { quickjs_value_to_string(value) })
+}
+
+private func getProperty(value: CPointer<Unit>, name: String): CPointer<Unit> {
+    if (!valueIsObject(value) && !valueIsFunction(value)) {
+        throw ExternDynamicException("JavaScript value is not an object")
+    }
+
+    let cName = unsafe { LibC.mallocCString(name) }
+    let result = unsafe { quickjs_value_get_property(value, cName) }
+    unsafe { LibC.free(cName) }
+    if (result.isNull()) {
+        throw ExternDynamicException("failed to read JavaScript property")
+    }
+
+    result
+}
+
+private func setProperty(target: CPointer<Unit>, name: String, value: CPointer<Unit>): Unit {
+    if (!valueIsObject(target) && !valueIsFunction(target)) {
+        throw ExternDynamicException("JavaScript value is not an object")
+    }
+
+    let cName = unsafe { LibC.mallocCString(name) }
+    let status = unsafe { quickjs_value_set_property(target, cName, value) }
+    unsafe { LibC.free(cName) }
+    if (status != 0) {
+        throw ExternDynamicException("failed to write JavaScript property")
+    }
+}
+
+private func getIndex(value: CPointer<Unit>, index: Int64): CPointer<Unit> {
+    if (!valueIsArray(value)) {
+        throw ExternDynamicException("Expected JavaScript array")
+    }
+
+    let length = unsafe { quickjs_value_array_length(value) }
+    if (index < 0 || index >= length) {
+        throw ExternDynamicException("JavaScript array index is out of range")
+    }
+
+    let result = unsafe { quickjs_value_get_index(value, index) }
+    if (result.isNull()) {
+        throw ExternDynamicException("failed to read JavaScript array index")
+    }
+
+    result
+}
+
+private func externContentToValue(content: Any): CPointer<Unit> {
     match (content) {
-        case jsValue: JSValue => jsValue
-        case result: JSEvalResult => result.asValue()
-        case _ => throw ExternConversionException("Extern value does not contain a QuickJS value")
+        case value: CPointer<Unit> => value
+        case module: (String, CPointer<Unit>) => module[1]
+        case _ => throw ExternConversionException("Extern value does not contain a JavaScript value")
+    }
+}
+
+private func closeExternContent(content: Any): Unit {
+    match (content) {
+        case value: CPointer<Unit> => unsafe { quickjs_value_destroy(value) }
+        case module: (String, CPointer<Unit>) => unsafe { quickjs_value_destroy(module[1]) }
+        case methodAndThis: (CPointer<Unit>, CPointer<Unit>) => unsafe { quickjs_value_destroy(methodAndThis[0]) }
+        case _ => ()
     }
 }
 
 extend Extern<JSRuntime> {
     public func close(): Unit {
-        match (content) {
-            case jsValue: JSValue => jsValue.close()
-            case result: JSEvalResult => result.close()
-            case module: JSModule => module.close()
-            case methodAndThis: (JSFunction, JSValue) => methodAndThis[0].close()
-            case _ => ()
-        }
+        closeExternContent(content)
     }
 }
 
-private func closeExternContent(content: Any): Unit {
-    Extern<JSRuntime>(content).close()
+private func closeExtern(e: Extern<JSRuntime>): Unit {
+    e.close()
 }
 
-private func quickJS2Cangjie<T>(value: JSValue, cjType: Option<T>) {
+private func quickJS2Cangjie<T>(value: CPointer<Unit>, cjType: Option<T>) {
     match (cjType) {
         case _: Option<Bool> =>
-            if (value.isBool()) {
-                return (value.asBool() as T).getOrThrow()
+            if (valueIsBool(value)) {
+                return (valueAsBool(value) as T).getOrThrow()
             }
         case _: Option<String> =>
-            if (value.isString() || value.isBigInt()) {
-                return (value.asString() as T).getOrThrow()
+            if (valueIsString(value) || valueIsBigInt(value)) {
+                return (valueAsString(value) as T).getOrThrow()
             }
         case _: Option<Int8> =>
-            if (value.isNumber()) {
-                return (Int8(value.asFloat64()) as T).getOrThrow()
-            } else if (value.isBigInt()) {
-                return (BigInt.parse(value.asString()).toInt8() as T).getOrThrow()
+            if (valueIsNumber(value)) {
+                return (Int8(valueAsFloat64(value)) as T).getOrThrow()
+            } else if (valueIsBigInt(value)) {
+                return (BigInt.parse(valueAsString(value)).toInt8() as T).getOrThrow()
             }
         case _: Option<Int16> =>
-            if (value.isNumber()) {
-                return (Int16(value.asFloat64()) as T).getOrThrow()
-            } else if (value.isBigInt()) {
-                return (BigInt.parse(value.asString()).toInt16() as T).getOrThrow()
+            if (valueIsNumber(value)) {
+                return (Int16(valueAsFloat64(value)) as T).getOrThrow()
+            } else if (valueIsBigInt(value)) {
+                return (BigInt.parse(valueAsString(value)).toInt16() as T).getOrThrow()
             }
         case _: Option<Int32> =>
-            if (value.isNumber()) {
-                return (Int32(value.asFloat64()) as T).getOrThrow()
-            } else if (value.isBigInt()) {
-                return (BigInt.parse(value.asString()).toInt32() as T).getOrThrow()
+            if (valueIsNumber(value)) {
+                return (Int32(valueAsFloat64(value)) as T).getOrThrow()
+            } else if (valueIsBigInt(value)) {
+                return (BigInt.parse(valueAsString(value)).toInt32() as T).getOrThrow()
             }
         case _: Option<Int64> =>
-            if (value.isNumber()) {
-                return (Int64(value.asFloat64()) as T).getOrThrow()
-            } else if (value.isBigInt()) {
-                return (BigInt.parse(value.asString()).toInt64() as T).getOrThrow()
+            if (valueIsNumber(value)) {
+                return (Int64(valueAsFloat64(value)) as T).getOrThrow()
+            } else if (valueIsBigInt(value)) {
+                return (BigInt.parse(valueAsString(value)).toInt64() as T).getOrThrow()
             }
         case _: Option<UInt8> =>
-            if (value.isNumber()) {
-                return (UInt8(value.asFloat64()) as T).getOrThrow()
-            } else if (value.isBigInt()) {
-                return (BigInt.parse(value.asString()).toUInt8() as T).getOrThrow()
+            if (valueIsNumber(value)) {
+                return (UInt8(valueAsFloat64(value)) as T).getOrThrow()
+            } else if (valueIsBigInt(value)) {
+                return (BigInt.parse(valueAsString(value)).toUInt8() as T).getOrThrow()
             }
         case _: Option<UInt16> =>
-            if (value.isNumber()) {
-                return (UInt16(value.asFloat64()) as T).getOrThrow()
-            } else if (value.isBigInt()) {
-                return (BigInt.parse(value.asString()).toUInt16() as T).getOrThrow()
+            if (valueIsNumber(value)) {
+                return (UInt16(valueAsFloat64(value)) as T).getOrThrow()
+            } else if (valueIsBigInt(value)) {
+                return (BigInt.parse(valueAsString(value)).toUInt16() as T).getOrThrow()
             }
         case _: Option<UInt32> =>
-            if (value.isNumber()) {
-                return (UInt32(value.asFloat64()) as T).getOrThrow()
-            } else if (value.isBigInt()) {
-                return (BigInt.parse(value.asString()).toUInt32() as T).getOrThrow()
+            if (valueIsNumber(value)) {
+                return (UInt32(valueAsFloat64(value)) as T).getOrThrow()
+            } else if (valueIsBigInt(value)) {
+                return (BigInt.parse(valueAsString(value)).toUInt32() as T).getOrThrow()
             }
         case _: Option<UInt64> =>
-            if (value.isNumber()) {
-                return (UInt64(value.asFloat64()) as T).getOrThrow()
-            } else if (value.isBigInt()) {
-                return (BigInt.parse(value.asString()).toUInt64() as T).getOrThrow()
+            if (valueIsNumber(value)) {
+                return (UInt64(valueAsFloat64(value)) as T).getOrThrow()
+            } else if (valueIsBigInt(value)) {
+                return (BigInt.parse(valueAsString(value)).toUInt64() as T).getOrThrow()
             }
         case _: Option<BigInt> =>
-            if (value.isNumber()) {
-                return (BigInt(value.asFloat64()) as T).getOrThrow()
-            } else if (value.isBigInt()) {
-                return (BigInt.parse(value.asString()) as T).getOrThrow()
+            if (valueIsNumber(value)) {
+                return (BigInt(valueAsFloat64(value)) as T).getOrThrow()
+            } else if (valueIsBigInt(value)) {
+                return (BigInt.parse(valueAsString(value)) as T).getOrThrow()
             }
         case _: Option<Float16> =>
-            if (value.isNumber()) {
-                return (Float16(value.asFloat64()) as T).getOrThrow()
-            } else if (value.isBigInt()) {
-                return (BigInt.parse(value.asString()).toFloat16() as T).getOrThrow()
+            if (valueIsNumber(value)) {
+                return (Float16(valueAsFloat64(value)) as T).getOrThrow()
+            } else if (valueIsBigInt(value)) {
+                return (BigInt.parse(valueAsString(value)).toFloat16() as T).getOrThrow()
             }
         case _: Option<Float32> =>
-            if (value.isNumber()) {
-                return (Float32(value.asFloat64()) as T).getOrThrow()
-            } else if (value.isBigInt()) {
-                return (BigInt.parse(value.asString()).toFloat32() as T).getOrThrow()
+            if (valueIsNumber(value)) {
+                return (Float32(valueAsFloat64(value)) as T).getOrThrow()
+            } else if (valueIsBigInt(value)) {
+                return (BigInt.parse(valueAsString(value)).toFloat32() as T).getOrThrow()
             }
         case _: Option<Float64> =>
-            if (value.isNumber()) {
-                return (value.asFloat64() as T).getOrThrow()
-            } else if (value.isBigInt()) {
-                return (BigInt.parse(value.asString()).toFloat64() as T).getOrThrow()
+            if (valueIsNumber(value)) {
+                return (valueAsFloat64(value) as T).getOrThrow()
+            } else if (valueIsBigInt(value)) {
+                return (BigInt.parse(valueAsString(value)).toFloat64() as T).getOrThrow()
             }
-        case _: Option<JSValue> =>
-            return (value as T).getOrThrow()
         case _ => ()
     }
 
@@ -123,89 +315,140 @@ private func quickJS2Cangjie<T>(value: JSValue, cjType: Option<T>) {
 }
 
 abstract public class JSRuntime <: Runtime<JSRuntime> {
-    private static let runtime = JSNativeRuntime(".")
+    private static let runtime = createRuntime()
 
-    private static func toJSBigInt(value: String): JSEvalResult {
-        let result = runtime.evalScript("${value}n")
-        if (!result.isOk()) {
-            let message = result.errorMessage()
-            closeExternContent(result)
-            throw ExternConversionException(message)
-        }
-
-        result
+    private static func toJSBigInt(value: String): CPointer<Unit> {
+        let result = evalScript("${value}n")
+        externContentToValue(result.content)
     }
 
-    private static func toJSValue(value: Any): JSValue {
+    private static func toJSValue(value: Any): CPointer<Unit> {
         match (value) {
             case e: Extern<JSRuntime> =>
-                externContentToJSValue(e.content)
-            case jsValue: JSValue =>
-                jsValue
+                externContentToValue(e.content)
+            case handle: CPointer<Unit> =>
+                handle
             case i: Int8 =>
-                JSValue.int64(runtime, Int64(i))
+                valueFromRuntimeHandle(runtime, unsafe { quickjs_runtime_new_number(runtime, Float64(i)) })
             case i: Int16 =>
-                JSValue.int64(runtime, Int64(i))
+                valueFromRuntimeHandle(runtime, unsafe { quickjs_runtime_new_number(runtime, Float64(i)) })
             case i: Int32 =>
-                JSValue.int64(runtime, Int64(i))
+                valueFromRuntimeHandle(runtime, unsafe { quickjs_runtime_new_number(runtime, Float64(i)) })
             case i: Int64 =>
-                toJSBigInt("${i}").asValue()
+                toJSBigInt("${i}")
             case i: UInt8 =>
-                JSValue.int64(runtime, Int64(i))
+                valueFromRuntimeHandle(runtime, unsafe { quickjs_runtime_new_number(runtime, Float64(i)) })
             case i: UInt16 =>
-                JSValue.int64(runtime, Int64(i))
+                valueFromRuntimeHandle(runtime, unsafe { quickjs_runtime_new_number(runtime, Float64(i)) })
             case i: UInt32 =>
-                toJSBigInt("${i}").asValue()
+                toJSBigInt("${i}")
             case i: UInt64 =>
-                toJSBigInt("${i}").asValue()
+                toJSBigInt("${i}")
             case i: BigInt =>
-                toJSBigInt("${i}").asValue()
+                toJSBigInt("${i}")
             case f: Float16 =>
-                JSValue.float64(runtime, Float64(f))
+                valueFromRuntimeHandle(runtime, unsafe { quickjs_runtime_new_number(runtime, Float64(f)) })
             case f: Float32 =>
-                JSValue.float64(runtime, Float64(f))
+                valueFromRuntimeHandle(runtime, unsafe { quickjs_runtime_new_number(runtime, Float64(f)) })
             case f: Float64 =>
-                JSValue.float64(runtime, f)
+                valueFromRuntimeHandle(runtime, unsafe { quickjs_runtime_new_number(runtime, f) })
             case b: Bool =>
-                JSValue.bool(runtime, b)
+                valueFromRuntimeHandle(runtime, unsafe { quickjs_runtime_new_bool(runtime, boolAsInt64(b)) })
             case s: String =>
-                JSValue.string(runtime, s)
+                let cValue = unsafe { LibC.mallocCString(s) }
+                let handle = unsafe { quickjs_runtime_new_string(runtime, cValue) }
+                unsafe { LibC.free(cValue) }
+                valueFromRuntimeHandle(runtime, handle)
             case _ => throw ExternConversionException("Unsupported type by JSRuntime")
         }
     }
 
-    private static func toJSValues(args: Array<Any>): Array<JSValue> {
+    private static func toJSValues(args: Array<Any>): Array<CPointer<Unit>> {
         args.map(toJSValue)
     }
 
+    private static func callValue(function: CPointer<Unit>, args: Array<CPointer<Unit>>): CPointer<Unit> {
+        let nativeArgs = args
+        unsafe {
+            let rawNativeArgs = acquireArrayRawData(nativeArgs)
+            try {
+                let result = valueFromCallHandle(function, quickjs_value_call(function, rawNativeArgs.pointer, Int32(args.size)))
+                releaseArrayRawData(rawNativeArgs)
+                return result
+            } catch (e: Exception) {
+                releaseArrayRawData(rawNativeArgs)
+                throw e
+            }
+        }
+    }
+
+    private static func callMethod(function: CPointer<Unit>, thisValue: CPointer<Unit>, args: Array<CPointer<Unit>>): CPointer<Unit> {
+        let nativeArgs = args
+        unsafe {
+            let rawNativeArgs = acquireArrayRawData(nativeArgs)
+            try {
+                let result = valueFromCallHandle(function, quickjs_value_call_method(function, thisValue, rawNativeArgs.pointer, Int32(args.size)))
+                releaseArrayRawData(rawNativeArgs)
+                return result
+            } catch (e: Exception) {
+                releaseArrayRawData(rawNativeArgs)
+                throw e
+            }
+        }
+    }
+
+    private static func constructValue(constructor: CPointer<Unit>, args: Array<CPointer<Unit>>): CPointer<Unit> {
+        let nativeArgs = args
+        unsafe {
+            let rawNativeArgs = acquireArrayRawData(nativeArgs)
+            try {
+                let result = valueFromCallHandle(constructor, quickjs_value_construct(constructor, rawNativeArgs.pointer, Int32(args.size)))
+                releaseArrayRawData(rawNativeArgs)
+                return result
+            } catch (e: Exception) {
+                releaseArrayRawData(rawNativeArgs)
+                throw e
+            }
+        }
+    }
+
     public static func evalScript(source: String): Extern<JSRuntime> {
-        let result = runtime.evalScript(source)
-        if (!result.isOk()) {
-            let message = result.errorMessage()
-            closeExternContent(result)
-            throw ExternDynamicException(message)
+        let cSource = unsafe { LibC.mallocCString(source) }
+        let value = unsafe { quickjs_runtime_eval_value(runtime, cSource) }
+        unsafe { LibC.free(cSource) }
+        if (value.isNull()) {
+            throw ExternDynamicException(runtimeError(runtime))
         }
 
-        Extern<JSRuntime>(result)
+        Extern<JSRuntime>(value)
     }
 
     public static func enableStdModule(): Unit {
-        runtime.enableStdModule()
+        let status = unsafe { quickjs_runtime_enable_std_module(runtime) }
+        if (status != 0) {
+            throw ExternDynamicException(runtimeError(runtime))
+        }
     }
 
     public static func getModule(moduleName: String): Extern<JSRuntime> {
-        Extern<JSRuntime>(runtime.importModule(moduleName))
+        let cPath = unsafe { LibC.mallocCString(moduleName) }
+        let namespace = unsafe { quickjs_runtime_import_module(runtime, cPath) }
+        unsafe { LibC.free(cPath) }
+        if (namespace.isNull()) {
+            throw ExternDynamicException(runtimeError(runtime))
+        }
+
+        Extern<JSRuntime>(("module", namespace))
     }
 
     public static func evalMemberAccess(e: Extern<JSRuntime>, field: String): Extern<JSRuntime> {
         match (e.content) {
-            case module: JSModule =>
-                let fieldValue = module.get(field)
-                Extern<JSRuntime>(fieldValue)
-            case jsValue: JSValue =>
-                let fieldValue = jsValue.asObject().get(field)
-                if (fieldValue.isFunction()) {
-                    Extern<JSRuntime>((fieldValue.asFunction(), jsValue))
+            case module: (String, CPointer<Unit>) =>
+                Extern<JSRuntime>(getProperty(module[1], field))
+            case value: CPointer<Unit> =>
+                let fieldValue = getProperty(value, field)
+                if (valueIsFunction(fieldValue)) {
+                    Extern<JSRuntime>((fieldValue, value))
                 } else {
                     Extern<JSRuntime>(fieldValue)
                 }
@@ -215,14 +458,14 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
 
     public static func evalFunctionCall(e: Extern<JSRuntime>, args: Array<Any>): Extern<JSRuntime> {
         match (e.content) {
-            case methodAndThis: (JSFunction, JSValue) =>
-                Extern<JSRuntime>(methodAndThis[0].callWithThis(methodAndThis[1], toJSValues(args)))
-            case jsValue: JSValue =>
-                let function = jsValue.asFunction()
+            case methodAndThis: (CPointer<Unit>, CPointer<Unit>) =>
+                Extern<JSRuntime>(callMethod(methodAndThis[0], methodAndThis[1], toJSValues(args)))
+            case value: CPointer<Unit> =>
+                let jsArgs = toJSValues(args)
                 try {
-                    return Extern<JSRuntime>(function.call(toJSValues(args)))
+                    return Extern<JSRuntime>(callValue(value, jsArgs))
                 } catch (_) {
-                    return Extern<JSRuntime>(function.construct(toJSValues(args)))
+                    return Extern<JSRuntime>(constructValue(value, jsArgs))
                 }
             case _ => throw ExternDynamicException("Expected function or class")
         }
@@ -230,9 +473,9 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
 
     public static func evalAssignment(e: Extern<JSRuntime>, field: String, value: Any): Unit {
         match (e.content) {
-            case jsValue: JSValue =>
-                jsValue.asObject().set(field, toJSValue(value))
-            case module: JSModule =>
+            case target: CPointer<Unit> =>
+                setProperty(target, field, toJSValue(value))
+            case _: (String, CPointer<Unit>) =>
                 throw ExternDynamicException("Cannot assign to JavaScript module namespace")
             case _ => throw ExternDynamicException("Unsupported assignment")
         }
@@ -251,24 +494,22 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
         }
 
         match (e.content) {
-            case jsValue: JSValue =>
-                Extern<JSRuntime>(jsValue.asArray().get(index))
+            case value: CPointer<Unit> =>
+                Extern<JSRuntime>(getIndex(value, index))
             case _ => throw ExternDynamicException("Expected JavaScript array")
         }
     }
 
     public static func fromExtern<T>(e: Extern<JSRuntime>): T {
         let dummy: Option<T> = None
-        match (e.content) {
-            case jsValue: JSValue =>
-                quickJS2Cangjie(jsValue, dummy)
-            case result: JSEvalResult =>
-                quickJS2Cangjie(result.asValue(), dummy)
-            case _ => throw ExternConversionException("Extern value does not contain a QuickJS value")
-        }
+        quickJS2Cangjie(externContentToValue(e.content), dummy)
     }
 
     public static func toExtern<T>(value: T): Extern<JSRuntime> {
         Extern<JSRuntime>(toJSValue(value))
+    }
+
+    public static func close(e: Extern<JSRuntime>): Unit {
+        closeExtern(e)
     }
 }
