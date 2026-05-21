@@ -32,12 +32,8 @@ foreign func quickjs_value_key_count(handle: CPointer<Unit>): Int64
 foreign func quickjs_value_key_at(handle: CPointer<Unit>, index: Int64): CString
 foreign func quickjs_value_runtime_last_error(handle: CPointer<Unit>): CString
 foreign func quickjs_value_is_function(handle: CPointer<Unit>): Int64
-foreign func quickjs_value_call0(function: CPointer<Unit>): CPointer<Unit>
-foreign func quickjs_value_call1(function: CPointer<Unit>, arg0: CPointer<Unit>): CPointer<Unit>
-foreign func quickjs_value_call2(function: CPointer<Unit>, arg0: CPointer<Unit>, arg1: CPointer<Unit>): CPointer<Unit>
-foreign func quickjs_value_call_method0(function: CPointer<Unit>, thisValue: CPointer<Unit>): CPointer<Unit>
-foreign func quickjs_value_call_method1(function: CPointer<Unit>, thisValue: CPointer<Unit>, arg0: CPointer<Unit>): CPointer<Unit>
-foreign func quickjs_value_call_method2(function: CPointer<Unit>, thisValue: CPointer<Unit>, arg0: CPointer<Unit>, arg1: CPointer<Unit>): CPointer<Unit>
+foreign func quickjs_value_call(function: CPointer<Unit>, args: CPointer<CPointer<Unit>>, numArgs: Int32): CPointer<Unit>
+foreign func quickjs_value_call_method(function: CPointer<Unit>, thisValue: CPointer<Unit>, args: CPointer<CPointer<Unit>>, numArgs: Int32): CPointer<Unit>
 foreign func quickjs_value_construct(function: CPointer<Unit>, args: CPointer<CPointer<Unit>>, numArgs: Int32): CPointer<Unit>
 
 public func jsInteropVersion(): String {
@@ -593,33 +589,35 @@ public class JSFunction {
 
     public func call(args: Array<JSValue>): JSValue {
         value.ensureOpen()
-        if (args.size == 0) {
-            return valueFromCallResult(unsafe { quickjs_value_call0(value.nativeHandle()) })
+        let nativeArgs = args.map { it => it.nativeHandle() }
+        unsafe {
+            let rawNativeArgs = acquireArrayRawData(nativeArgs)
+            try {
+                let result = valueFromCallResult(quickjs_value_call(value.nativeHandle(), rawNativeArgs.pointer, Int32(args.size)))
+                releaseArrayRawData(rawNativeArgs)
+                return result
+            } catch (e: Exception) {
+                releaseArrayRawData(rawNativeArgs)
+                throw e
+            }
         }
-        if (args.size == 1) {
-            return valueFromCallResult(unsafe { quickjs_value_call1(value.nativeHandle(), args[0].nativeHandle()) })
-        }
-        if (args.size == 2) {
-            return valueFromCallResult(unsafe { quickjs_value_call2(value.nativeHandle(), args[0].nativeHandle(), args[1].nativeHandle()) })
-        }
-
-        throw Exception("JavaScript function calls support up to two arguments in Phase 5")
     }
 
     public func callWithThis(thisValue: JSValue, args: Array<JSValue>): JSValue {
         value.ensureOpen()
         thisValue.ensureOpen()
-        if (args.size == 0) {
-            return valueFromCallResult(unsafe { quickjs_value_call_method0(value.nativeHandle(), thisValue.nativeHandle()) })
+        let nativeArgs = args.map { it => it.nativeHandle() }
+        unsafe {
+            let rawNativeArgs = acquireArrayRawData(nativeArgs)
+            try {
+                let result = valueFromCallResult(quickjs_value_call_method(value.nativeHandle(), thisValue.nativeHandle(), rawNativeArgs.pointer, Int32(args.size)))
+                releaseArrayRawData(rawNativeArgs)
+                return result
+            } catch (e: Exception) {
+                releaseArrayRawData(rawNativeArgs)
+                throw e
+            }
         }
-        if (args.size == 1) {
-            return valueFromCallResult(unsafe { quickjs_value_call_method1(value.nativeHandle(), thisValue.nativeHandle(), args[0].nativeHandle()) })
-        }
-        if (args.size == 2) {
-            return valueFromCallResult(unsafe { quickjs_value_call_method2(value.nativeHandle(), thisValue.nativeHandle(), args[0].nativeHandle(), args[1].nativeHandle()) })
-        }
-
-        throw Exception("JavaScript method calls support up to two arguments in Phase 5")
     }
 
     public func construct(args: Array<JSValue>): JSValue {
@@ -636,8 +634,6 @@ public class JSFunction {
                 throw e
             }
         }
-
-        throw Exception("JavaScript constructors support up to two arguments in Phase 5")
     }
 }
 

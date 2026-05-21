@@ -38,12 +38,8 @@ int64_t quickjs_value_set_index(quickjs_value_handle *handle, int64_t index, qui
 int64_t quickjs_value_key_count(quickjs_value_handle *handle);
 const char *quickjs_value_key_at(quickjs_value_handle *handle, int64_t index);
 
-quickjs_value_handle *quickjs_value_call0(quickjs_value_handle *function);
-quickjs_value_handle *quickjs_value_call1(quickjs_value_handle *function, quickjs_value_handle *arg0);
-quickjs_value_handle *quickjs_value_call2(quickjs_value_handle *function, quickjs_value_handle *arg0, quickjs_value_handle *arg1);
-quickjs_value_handle *quickjs_value_call_method0(quickjs_value_handle *function, quickjs_value_handle *this_value);
-quickjs_value_handle *quickjs_value_call_method1(quickjs_value_handle *function, quickjs_value_handle *this_value, quickjs_value_handle *arg0);
-quickjs_value_handle *quickjs_value_call_method2(quickjs_value_handle *function, quickjs_value_handle *this_value, quickjs_value_handle *arg0, quickjs_value_handle *arg1);
+quickjs_value_handle *quickjs_value_call(quickjs_value_handle *function, quickjs_value_handle **args, int numArgs);
+quickjs_value_handle *quickjs_value_call_method(quickjs_value_handle *function, quickjs_value_handle *this_value, quickjs_value_handle **args, int numArgs);
 quickjs_value_handle *quickjs_value_construct(quickjs_value_handle *constructor, quickjs_value_handle **args, int numArgs);
 
 #endif
