@@ -1,4 +1,4 @@
-package interop_javascript_smoke
+package smoke
 
 main(): Int64 {
     println("◆ starting smoke tests")

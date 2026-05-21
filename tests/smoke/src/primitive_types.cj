@@ -1,4 +1,4 @@
-package interop_javascript_smoke
+package smoke
 
 import extern.Extern
 import interop_javascript.JSRuntime

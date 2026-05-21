@@ -1,4 +1,4 @@
-package interop_javascript_smoke
+package smoke
 
 import extern.Extern
 import interop_javascript.JSRuntime
@@ -7,7 +7,7 @@ func runLoadModulesSmoke(): Int64 {
     JSRuntime.enableStdModule()
     JSRuntime.enableStdModule()
 
-    let module: Extern<JSRuntime> = JSRuntime.getModule("tests/smoke/js_examples/ok/shape_module.js")
+    let module: Extern<JSRuntime> = JSRuntime.getModule("js_examples/ok/shape_module.js")
 
     let lookup: Extern<JSRuntime> = JSRuntime.evalMemberAccess(module, "lookup")
     let siteValue: Extern<JSRuntime> = JSRuntime.evalFunctionCall(lookup, [47.6205, -122.3493])
@@ -43,7 +43,7 @@ func runLoadModulesSmoke(): Int64 {
     JSRuntime.close(rectangleClass)
 
     let marker: Extern<JSRuntime> = JSRuntime.evalMemberAccess(module, "moduleMarker")
-    let cachedModule: Extern<JSRuntime> = JSRuntime.getModule("tests/smoke/js_examples/ok/shape_module.js")
+    let cachedModule: Extern<JSRuntime> = JSRuntime.getModule("js_examples/ok/shape_module.js")
     let cachedMarker: Extern<JSRuntime> = JSRuntime.evalMemberAccess(cachedModule, "moduleMarker")
     if (JSRuntime.fromExtern<Float64>(marker) != JSRuntime.fromExtern<Float64>(cachedMarker)) {
         println("module cache did not preserve evaluated namespace")

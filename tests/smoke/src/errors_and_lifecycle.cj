@@ -1,4 +1,4 @@
-package interop_javascript_smoke
+package smoke
 
 import extern.Extern
 import interop_javascript.JSRuntime
@@ -33,7 +33,7 @@ func runErrorsAndLifecycleSmoke(): Int64 {
     JSRuntime.close(throwingConstructor)
 
     try {
-        let unexpected: Extern<JSRuntime> = JSRuntime.getModule("tests/smoke/js_examples/nok/missing_module.js")
+        let unexpected: Extern<JSRuntime> = JSRuntime.getModule("js_examples/nok/missing_module.js")
         JSRuntime.close(unexpected)
         println("missing module unexpectedly loaded")
         return 5
@@ -45,7 +45,7 @@ func runErrorsAndLifecycleSmoke(): Int64 {
     }
 
     try {
-        let unexpected: Extern<JSRuntime> = JSRuntime.getModule("tests/smoke/js_examples/nok/broken_module.js")
+        let unexpected: Extern<JSRuntime> = JSRuntime.getModule("js_examples/nok/broken_module.js")
         JSRuntime.close(unexpected)
         println("broken module unexpectedly loaded")
         return 7
