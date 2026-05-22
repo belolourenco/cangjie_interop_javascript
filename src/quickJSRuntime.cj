@@ -197,6 +197,11 @@ private func setIndex(target: CPointer<Unit>, index: Int64, value: CPointer<Unit
         throw ExternDynamicException("Expected JavaScript array")
     }
 
+    let length = unsafe { value_array_length(target) }
+    if (index < 0 || index >= length) {
+        throw ExternDynamicException("JavaScript array index is out of range")
+    }
+
     let status = unsafe { value_set_index(target, index, value) }
     if (status != 0) {
         throw ExternDynamicException("failed to write JavaScript array index")
