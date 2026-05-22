@@ -28,6 +28,8 @@ struct runtime_handle {
     JSContext *context;
     char *last_error;
     struct module_cache_entry *module_cache;
+    size_t value_count;
+    int destroying;
     int std_module_enabled;
 };
 
@@ -87,6 +89,44 @@ static int valid_value(value_handle *value) {
     return value != NULL && valid_runtime(value->runtime);
 }
 
+static void free_module_cache(runtime_handle *runtime) {
+    if (runtime == NULL || runtime->context == NULL) {
+        return;
+    }
+
+    struct module_cache_entry *entry = runtime->module_cache;
+    while (entry != NULL) {
+        struct module_cache_entry *next = entry->next;
+        JS_FreeValue(runtime->context, entry->namespace_value);
+        free(entry->path);
+        free(entry);
+        entry = next;
+    }
+    runtime->module_cache = NULL;
+}
+
+static void free_runtime(runtime_handle *runtime) {
+    if (runtime == NULL) {
+        return;
+    }
+
+    free_module_cache(runtime);
+    if (runtime->context != NULL) {
+        JS_FreeContext(runtime->context);
+    }
+    if (runtime->runtime != NULL) {
+        JS_FreeRuntime(runtime->runtime);
+    }
+    free(runtime->last_error);
+    free(runtime);
+}
+
+static void free_runtime_if_ready(runtime_handle *runtime) {
+    if (runtime != NULL && runtime->destroying && runtime->value_count == 0) {
+        free_runtime(runtime);
+    }
+}
+
 static value_handle *new_value_handle(runtime_handle *runtime, JSValue value) {
     if (!valid_runtime(runtime)) {
         return NULL;
@@ -101,6 +141,7 @@ static value_handle *new_value_handle(runtime_handle *runtime, JSValue value) {
 
     handle->runtime = runtime;
     handle->value = value;
+    runtime->value_count++;
     return handle;
 }
 
@@ -196,6 +237,15 @@ runtime_handle *runtime_create(void) {
     }
 
     return handle;
+}
+
+void runtime_destroy(runtime_handle *handle) {
+    if (handle == NULL) {
+        return;
+    }
+
+    handle->destroying = 1;
+    free_runtime_if_ready(handle);
 }
 
 const char *runtime_last_error(runtime_handle *handle) {
@@ -387,10 +437,15 @@ void value_destroy(value_handle *handle) {
         return;
     }
 
+    runtime_handle *runtime = handle->runtime;
     if (valid_runtime(handle->runtime)) {
         JS_FreeValue(handle->runtime->context, handle->value);
     }
     free(handle);
+    if (runtime != NULL && runtime->value_count > 0) {
+        runtime->value_count--;
+        free_runtime_if_ready(runtime);
+    }
 }
 
 int64_t value_kind(value_handle *handle) {

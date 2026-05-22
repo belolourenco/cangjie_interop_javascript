@@ -7,6 +7,7 @@ typedef struct runtime_handle runtime_handle;
 typedef struct value_handle value_handle;
 
 runtime_handle *runtime_create(void);
+void runtime_destroy(runtime_handle *handle);
 const char *runtime_last_error(runtime_handle *handle);
 int64_t runtime_enable_std_module(runtime_handle *handle);
 

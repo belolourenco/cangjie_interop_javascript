@@ -4,6 +4,7 @@ import extern.*
 import std.math.numeric.BigInt
 
 foreign func runtime_create(): CPointer<Unit>
+foreign func runtime_destroy(handle: CPointer<Unit>): Unit
 foreign func runtime_last_error(handle: CPointer<Unit>): CString
 foreign func runtime_enable_std_module(handle: CPointer<Unit>): Int64
 
@@ -85,6 +86,22 @@ private func valueFromCallHandle(runtime: CPointer<Unit>, value: CPointer<Unit>)
     }
 
     value
+}
+
+private class JSRuntimeRef {
+    private let handle: CPointer<Unit>
+
+    init(handle: CPointer<Unit>) {
+        this.handle = handle
+    }
+
+    func pointer(): CPointer<Unit> {
+        handle
+    }
+
+    ~init() {
+        unsafe { runtime_destroy(handle) }
+    }
 }
 
 private class JSValueRef {
@@ -361,7 +378,8 @@ private func quickJS2Cangjie<T>(value: CPointer<Unit>, cjType: Option<T>) {
 }
 
 abstract public class JSRuntime <: Runtime<JSRuntime> {
-    private static let runtime = createRuntime()
+    private static let runtimeOwner = JSRuntimeRef(createRuntime())
+    private static let runtime = runtimeOwner.pointer()
 
     private static func toJSBigInt(value: String): JSValueRef {
         let result = evalScript("${value}n")
