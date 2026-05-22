@@ -268,12 +268,75 @@ public func testExternWithModules1() {
 
     println("Global object name: ${JSRuntime.fromExtern<String>(globalObjectName2)}")
     assert(JSRuntime.fromExtern<String>(globalObjectName2) == "global object 2", "Global object name should be 'global object 2'")
+
+    let globalStringNumberMap: Extern<JSRuntime> = JSRuntime.memberAccess(jsModule, "globalStringNumberMap")
+    let e_object: Extern<JSRuntime> = JSRuntime.globalAccess("Object")
+    let e_keys: Extern<JSRuntime> = JSRuntime.memberAccess(e_object, "keys")
+    let mapKeys: Extern<JSRuntime> = JSRuntime.functionCall(e_keys, [globalStringNumberMap])
+    let mapKeysLength: Extern<JSRuntime> = JSRuntime.memberAccess(mapKeys, "length")
+
+    let mapKeysLengthInt64: Int64 = JSRuntime.fromExtern<Int64>(mapKeysLength)
+    println("Global string number map length: ${mapKeysLengthInt64}")
+    assert(mapKeysLengthInt64 == 3, "Global string number map length should be 3")
+
+    let mapKeysElements: ArrayList<String> = convertArrayToArrayList<String>(mapKeys)
+    println("Global string number map keys: ${mapKeysElements}")
+    assert(mapKeysElements[0] == "one", "Global string number map key 0 should be 'one'")
+    assert(mapKeysElements[1] == "two", "Global string number map key 1 should be 'two'")
+    assert(mapKeysElements[2] == "answer", "Global string number map key 2 should be 'answer'")
+    
+    let e_values: Extern<JSRuntime> = JSRuntime.memberAccess(e_object, "values")
+    let mapValues: Extern<JSRuntime> = JSRuntime.functionCall(e_values, [globalStringNumberMap])
+    let mapValuesLength: Extern<JSRuntime> = JSRuntime.memberAccess(mapValues, "length")
+    let mapValuesLengthInt64: Int64 = JSRuntime.fromExtern<Int64>(mapValuesLength)
+    println("Global string number map values length: ${mapValuesLengthInt64}")
+    assert(mapValuesLengthInt64 == 3, "Global string number map values length should be 3")
+
+    let mapValuesElements: ArrayList<Int64> = convertArrayToArrayList<Int64>(mapValues)
+    println("Global string number map values: ${mapValuesElements}")
+    assert(mapValuesElements[0] == 1, "Global string number map value 0 should be 1")
+    assert(mapValuesElements[1] == 2, "Global string number map value 1 should be 2")
+    assert(mapValuesElements[2] == 42, "Global string number map value 2 should be 42")
+
+    // globalStringNumberMap.one = 42
+    // ->
+    JSRuntime.memberUpdate(globalStringNumberMap, "one", -1)
+    let globalStringNumberMapOne: Extern<JSRuntime> = JSRuntime.memberAccess(globalStringNumberMap, "one")
+    println("Global string number map one: ${JSRuntime.fromExtern<Int64>(globalStringNumberMapOne)}")
+    assert(JSRuntime.fromExtern<Int64>(globalStringNumberMapOne) == -1, "Global string number map one should be -1")
+
+    // globalStringNumberMap["two"] = -2
+    // ->
+    JSRuntime.indexUpdate(globalStringNumberMap, "two", -2)
+    let globalStringNumberMapTwo: Extern<JSRuntime> = JSRuntime.indexAccess(globalStringNumberMap, "two")
+    println("Global string number map two: ${JSRuntime.fromExtern<Int64>(globalStringNumberMapTwo)}")
+    assert(JSRuntime.fromExtern<Int64>(globalStringNumberMapTwo) == -2, "Global string number map two should be -2")
+
+
+    // let globalStringNumberMapOne_again: Extern<JSRuntime> = module.globalStringNumberMap.one
+    // ->
+    let globalStringNumberMapOne_again: Extern<JSRuntime> = JSRuntime.indexAccess(JSRuntime.memberAccess(jsModule, "globalStringNumberMap"), "one")
+    println("Global string number map one: ${JSRuntime.fromExtern<Int64>(globalStringNumberMapOne_again)}")
+    assert(JSRuntime.fromExtern<Int64>(globalStringNumberMapOne_again) == -1, "Global string number map one should be -1")
+
+    // let globalStringNumberMapTwo_again: Extern<JSRuntime> = module.globalStringNumberMap["two"]
+    // ->
+    let globalStringNumberMapTwo_again: Extern<JSRuntime> = JSRuntime.indexAccess(JSRuntime.memberAccess(jsModule, "globalStringNumberMap"), "two")
+    println("Global string number map two: ${JSRuntime.fromExtern<Int64>(globalStringNumberMapTwo_again)}")
+    assert(JSRuntime.fromExtern<Int64>(globalStringNumberMapTwo_again) == -2, "Global string number map two should be -2")
+
+    // let globalStringNumberMapAnswer_again: Extern<JSRuntime> = module.globalStringNumberMap.answer
+    // ->
+    let globalStringNumberMapAnswer_again: Extern<JSRuntime> = JSRuntime.indexAccess(JSRuntime.memberAccess(jsModule, "globalStringNumberMap"), "answer")
+    println("Global string number map answer: ${JSRuntime.fromExtern<Int64>(globalStringNumberMapAnswer_again)}")
+    assert(JSRuntime.fromExtern<Int64>(globalStringNumberMapAnswer_again) == 42, "Global string number map answer should be 42")
+    
 }
 
-func convertArrayToArrayList(array: Extern<JSRuntime>): ArrayList<Int64> {
+func convertArrayToArrayList<T>(array: Extern<JSRuntime>): ArrayList<T> {
     let arrayLength: Extern<JSRuntime> = JSRuntime.memberAccess(array, "length")
     let arrayLengthInt64: Int64 = JSRuntime.fromExtern<Int64>(arrayLength)
-    ArrayList<Int64>(arrayLengthInt64, { i: Int64 => 
-        JSRuntime.fromExtern<Int64>(JSRuntime.indexAccess(array, i))
+    ArrayList<T>(arrayLengthInt64, { i: Int64 => 
+        JSRuntime.fromExtern<T>(JSRuntime.indexAccess(array, i))
     })
 }

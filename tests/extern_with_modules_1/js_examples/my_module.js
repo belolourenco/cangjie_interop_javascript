@@ -11,6 +11,11 @@ export let globalObject = {
   enabled: true,
   values: [10, 20, 30]
 };
+export let globalStringNumberMap = {
+  one: 1,
+  two: 2,
+  answer: 42
+};
 
 export function lookup(lat, long) {
   return {

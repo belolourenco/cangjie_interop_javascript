@@ -500,20 +500,24 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
     }
 
     public static func indexAccess(e: Extern<JSRuntime>, arg: Any): Extern<JSRuntime> {
-        let index = jsIndex(arg)
         match (e.content) {
             case value: CPointer<Unit> =>
-                Extern<JSRuntime>(getIndex(value, index))
-            case _ => throw ExternDynamicException("Expected JavaScript array")
+                match (arg) {
+                    case key: String => Extern<JSRuntime>(getProperty(value, key))
+                    case _ => Extern<JSRuntime>(getIndex(value, jsIndex(arg)))
+                }
+            case _ => throw ExternDynamicException("Expected JavaScript array or object")
         }
     }
 
     public static func indexUpdate(e: Extern<JSRuntime>, arg: Any, value: Any): Unit {
-        let index = jsIndex(arg)
         match (e.content) {
             case target: CPointer<Unit> =>
-                setIndex(target, index, toJSValue(value))
-            case _ => throw ExternDynamicException("Expected JavaScript array")
+                match (arg) {
+                    case key: String => setProperty(target, key, toJSValue(value))
+                    case _ => setIndex(target, jsIndex(arg), toJSValue(value))
+                }
+            case _ => throw ExternDynamicException("Expected JavaScript array or object")
         }
     }
 
