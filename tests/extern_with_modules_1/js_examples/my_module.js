@@ -2,6 +2,16 @@ export function my_javascript_function() {
   return "my_javascript_function called";
 }
 
+export let globalBoolean = true;
+export let globalNumber = 42.4242;
+export let globalString = "hello from JavaScript";
+export let globalArray = [1, 2, 3];
+export let globalObject = {
+  name: "global object",
+  enabled: true,
+  values: [10, 20, 30]
+};
+
 export function lookup(lat, long) {
   return {
     coordinates: [long, lat],

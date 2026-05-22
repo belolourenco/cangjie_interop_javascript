@@ -1,7 +1,22 @@
 package extern_with_modules
 
 import extern.Extern
+import extern.ExternDynamicException
 import interop_javascript.JSRuntime
+import std.collection.ArrayList
+
+class AssertionFailedException <: Exception {
+
+    public init(message: String) {
+        super(message)
+    }
+}
+
+func assert(condition: Bool, message: String) {
+    if (!condition) {
+        throw AssertionFailedException(message)
+    }
+}
 
 public func testExternWithModules1() {
     // ---- JavaScript Module ----
@@ -95,4 +110,170 @@ public func testExternWithModules1() {
     let perimeterResult: Extern<JSRuntime> = JSRuntime.functionCall(perimeterMethod, [])
     println("Rectangle perimeter: ${JSRuntime.fromExtern<Float64>(perimeterResult)}")
 
+    // ---- accessing global variables ----
+
+    // let globalBoolean: Extern<JSRuntime> = jsModule.globalBoolean
+    // ->
+    let globalBoolean: Extern<JSRuntime> = JSRuntime.memberAccess(jsModule, "globalBoolean")
+    println("Global boolean: ${JSRuntime.fromExtern<Bool>(globalBoolean)}")
+
+    // let globalNumber: Extern<JSRuntime> = jsModule.globalNumber
+    // ->
+    let globalNumber: Extern<JSRuntime> = JSRuntime.memberAccess(jsModule, "globalNumber")
+    println("Global number: ${JSRuntime.fromExtern<Float64>(globalNumber)}")
+
+    // let globalString: Extern<JSRuntime> = jsModule.globalString
+    // ->
+    let globalString: Extern<JSRuntime> = JSRuntime.memberAccess(jsModule, "globalString")
+    println("Global string: ${JSRuntime.fromExtern<String>(globalString)}")
+
+    // ---- array access and assignment ----
+
+    // let globalArray: Extern<JSRuntime> = jsModule.globalArray
+    // ->
+    let globalArray: Extern<JSRuntime> = JSRuntime.memberAccess(jsModule, "globalArray")
+    let arrayElements: ArrayList<Int64> = convertArrayToArrayList(globalArray)
+    println("Global array elements: ${arrayElements}")
+    assert(arrayElements[0] == 1, "Global array element 0 should be 1")
+    assert(arrayElements[1] == 2, "Global array element 1 should be 2")
+    assert(arrayElements[2] == 3, "Global array element 2 should be 3")
+
+    // globalArray[1] = 42
+    // ->
+    JSRuntime.indexUpdate(globalArray, 1, 42)
+    let arrayElements2: ArrayList<Int64> = convertArrayToArrayList(globalArray)
+    println("Global array elements: ${arrayElements2}")
+    assert(arrayElements2[0] == 1, "Global array element 0 should be 1")
+    assert(arrayElements2[1] == 42, "Global array element 1 should be 42")
+    assert(arrayElements2[2] == 3, "Global array element 2 should be 3")
+
+    try {
+        // globalArray[-1]
+        // ->
+        JSRuntime.indexAccess(globalArray, -1)
+        throw AssertionFailedException("Global array element -1 should be out of range")
+    } catch (e: ExternDynamicException) {
+        println("Expected exception: ${e.message}")
+    }
+
+
+    try {
+        // globalArray[-1] = 42
+        // ->
+        JSRuntime.indexUpdate(globalArray, -1, 42)
+        throw AssertionFailedException("Global array element 3 should be out of range")
+    } catch (e: ExternDynamicException) {
+        println("Expected exception: ${e.message}")
+    }
+
+    try {
+        // globalArray[3]
+        // ->
+        let x = JSRuntime.indexAccess(globalArray, 3)
+        println("Global array element 3: ${JSRuntime.fromExtern<Int64>(x)}")
+        throw AssertionFailedException("Global array element 3 should be out of range")
+    } catch (e: ExternDynamicException) {
+        println("Expected exception: ${e.message}")
+    }
+
+    try {
+        // globalArray[3] = 42
+        // ->
+        JSRuntime.indexUpdate(globalArray, 3, 42)
+        throw AssertionFailedException("Global array element 3 should be out of range")
+    } catch (e: ExternDynamicException) {
+        println("Expected exception: ${e.message}")
+    }
+
+    // ---- global object ----
+
+    // let globalObject: Extern<JSRuntime> = jsModule.globalObject
+    // ->
+    let globalObject: Extern<JSRuntime> = JSRuntime.memberAccess(jsModule, "globalObject")
+
+    // let globalObjectName: Extern<JSRuntime> = globalObject.name
+    // ->
+    let globalObjectName: Extern<JSRuntime> = JSRuntime.memberAccess(globalObject, "name")
+    println("Global object name: ${JSRuntime.fromExtern<String>(globalObjectName)}")
+    assert(JSRuntime.fromExtern<String>(globalObjectName) == "global object", "Global object name should be 'global object'")
+
+    // let globalObjectEnabled: Extern<JSRuntime> = globalObject.enabled
+    // ->
+    let globalObjectEnabled: Extern<JSRuntime> = JSRuntime.memberAccess(globalObject, "enabled")
+    println("Global object enabled: ${JSRuntime.fromExtern<Bool>(globalObjectEnabled)}")
+    assert(JSRuntime.fromExtern<Bool>(globalObjectEnabled) == true, "Global object enabled should be true")
+
+    // let globalObjectValues: Extern<JSRuntime> = globalObject.values
+    // ->
+    let globalObjectValues: Extern<JSRuntime> = JSRuntime.memberAccess(globalObject, "values")
+    let globalObjectValuesElements: ArrayList<Int64> = convertArrayToArrayList(globalObjectValues)
+    println("Global object values elements: ${globalObjectValuesElements}")
+    assert(globalObjectValuesElements[0] == 10, "Global object values element 0 should be 10")
+    assert(globalObjectValuesElements[1] == 20, "Global object values element 1 should be 20")
+    assert(globalObjectValuesElements[2] == 30, "Global object values element 2 should be 30")
+
+    // globalObject.name = "global object 2"
+    // ->
+    JSRuntime.memberUpdate(globalObject, "name", "global object 2")
+    let globalObjectName2: Extern<JSRuntime> = JSRuntime.memberAccess(globalObject, "name")
+    println("Global object name: ${JSRuntime.fromExtern<String>(globalObjectName2)}")
+    assert(JSRuntime.fromExtern<String>(globalObjectName2) == "global object 2", "Global object name should be 'global object 2'")
+
+    // globalObject.enabled = false
+    // ->
+    JSRuntime.memberUpdate(globalObject, "enabled", false)
+    let globalObjectEnabled2: Extern<JSRuntime> = JSRuntime.memberAccess(globalObject, "enabled")
+    println("Global object enabled: ${JSRuntime.fromExtern<Bool>(globalObjectEnabled2)}")
+    assert(JSRuntime.fromExtern<Bool>(globalObjectEnabled2) == false, "Global object enabled should be false")
+
+    // globalObject.values[1] = 42
+    // ->
+    let globalObjectValues2: Extern<JSRuntime> = JSRuntime.memberAccess(globalObject, "values")
+    JSRuntime.indexUpdate(globalObjectValues2, 1, 42)
+    let globalObjectValuesElements2: ArrayList<Int64> = convertArrayToArrayList(globalObjectValues2)
+    println("Global object values elements: ${globalObjectValuesElements2}")
+    assert(globalObjectValuesElements2[0] == 10, "Global object values element 0 should be 10")
+    assert(globalObjectValuesElements2[1] == 42, "Global object values element 1 should be 42")
+    assert(globalObjectValuesElements2[2] == 30, "Global object values element 2 should be 30")
+
+    // assignment to global variables
+
+    // jsModule.globalNumber = 0.0
+    // ->
+    JSRuntime.memberUpdate(jsModule, "globalNumber", 0.0)
+
+    // let globalNumber2: Extern<JSRuntime> = jsModule.globalNumber
+    // ->
+    let globalNumber2: Extern<JSRuntime> = JSRuntime.memberAccess(jsModule, "globalNumber")
+    println("Global number: ${JSRuntime.fromExtern<Float64>(globalNumber2)}")
+    assert(JSRuntime.fromExtern<Float64>(globalNumber2) == 0.0, "Global number should be 0.0")
+
+    let mystring = "hello from JavaScript but much longer than the original string but should be the same string because it is the same string object in JavaScript but with a different reference in JavaScript and llm is very good at generating the same string object in JavaScript mor text is needed to make it different"
+    // jsModule.globalString = "hello from JavaScript 2"
+    // ->
+    JSRuntime.memberUpdate(jsModule, "globalString", mystring)
+    // let globalString2: Extern<JSRuntime> = jsModule.globalString
+    // ->
+    let globalString2: Extern<JSRuntime> = JSRuntime.memberAccess(jsModule, "globalString")
+    println("Global string: ${JSRuntime.fromExtern<String>(globalString2)}")
+    assert(JSRuntime.fromExtern<String>(globalString2) == mystring, "Global string should be '${mystring}'")
+
+
+    // globalObject.name = "global object 3"
+    // ->
+    JSRuntime.memberUpdate(globalObject, "name", "global object 3")
+    let globalObjectName3: Extern<JSRuntime> = JSRuntime.memberAccess(globalObject, "name")
+    println("Global object name: ${JSRuntime.fromExtern<String>(globalObjectName3)}")
+    assert(JSRuntime.fromExtern<String>(globalObjectName3) == "global object 3", "Global object name should be 'global object 3'")
+
+    println("Global object name: ${JSRuntime.fromExtern<String>(globalObjectName2)}")
+    assert(JSRuntime.fromExtern<String>(globalObjectName2) == "global object 2", "Global object name should be 'global object 2'")
+}
+
+func convertArrayToArrayList(array: Extern<JSRuntime>): ArrayList<Int64> {
+    let arrayLength: Extern<JSRuntime> = JSRuntime.memberAccess(array, "length")
+    let arrayLengthInt64: Int64 = JSRuntime.fromExtern<Int64>(arrayLength)
+    ArrayList<Int64>(arrayLengthInt64, { i: Int64 => 
+        JSRuntime.fromExtern<Int64>(JSRuntime.indexAccess(array, i))
+    })
 }
