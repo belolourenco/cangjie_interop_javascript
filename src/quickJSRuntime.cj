@@ -229,24 +229,6 @@ private func externContentToValue(content: Any): CPointer<Unit> {
     }
 }
 
-private func closeExternContent(content: Any): Unit {
-    match (content) {
-        case value: CPointer<Unit> => unsafe { value_destroy(value) }
-        case methodAndThis: (CPointer<Unit>, CPointer<Unit>) => unsafe { value_destroy(methodAndThis[0]) }
-        case _ => ()
-    }
-}
-
-extend Extern<JSRuntime> {
-    public func close(): Unit {
-        closeExternContent(content)
-    }
-}
-
-private func closeExtern(e: Extern<JSRuntime>): Unit {
-    e.close()
-}
-
 private func quickJS2Cangjie<T>(value: CPointer<Unit>, cjType: Option<T>) {
     match (cjType) {
         case _: Option<Bool> =>
@@ -528,9 +510,5 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
 
     public static func toExtern<T>(value: T): Extern<JSRuntime> {
         Extern<JSRuntime>(toJSValue(value))
-    }
-
-    public static func close(e: Extern<JSRuntime>): Unit {
-        closeExtern(e)
     }
 }

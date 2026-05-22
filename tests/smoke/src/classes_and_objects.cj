@@ -11,7 +11,6 @@ func runClassesAndObjectsSmoke(): Int64 {
         println("unexpected object property value")
         return 1
     }
-    JSRuntime.close(name)
 
     JSRuntime.memberUpdate(objectResult, "name", "Seattle Center")
     let updatedName: Extern<JSRuntime> = JSRuntime.memberAccess(objectResult, "name")
@@ -19,7 +18,6 @@ func runClassesAndObjectsSmoke(): Int64 {
         println("object property write failed")
         return 2
     }
-    JSRuntime.close(updatedName)
 
     let coordinatesValue: Extern<JSRuntime> = JSRuntime.memberAccess(objectResult, "coordinates")
     let longitude: Extern<JSRuntime> = JSRuntime.indexAccess(coordinatesValue, 0)
@@ -27,7 +25,6 @@ func runClassesAndObjectsSmoke(): Int64 {
         println("unexpected array element")
         return 3
     }
-    JSRuntime.close(longitude)
 
     JSRuntime.indexUpdate(coordinatesValue, 0, -123.0)
     let updatedLongitude: Extern<JSRuntime> = JSRuntime.indexAccess(coordinatesValue, 0)
@@ -35,18 +32,14 @@ func runClassesAndObjectsSmoke(): Int64 {
         println("array index write failed")
         return 4
     }
-    JSRuntime.close(updatedLongitude)
 
     try {
         let unexpected: Extern<JSRuntime> = JSRuntime.indexAccess(coordinatesValue, 2)
-        JSRuntime.close(unexpected)
         println("out-of-range array index unexpectedly succeeded")
         return 5
     } catch (_) {
         ()
     }
-    JSRuntime.close(coordinatesValue)
-    JSRuntime.close(objectResult)
 
     let classValue: Extern<JSRuntime> = JSRuntime.evalScript("class Rectangle { constructor(width, height) { this.width = width; this.height = height; } area() { return this.width * this.height; } }; Rectangle")
     let instance: Extern<JSRuntime> = JSRuntime.functionCall(classValue, [Int32(4), Int32(5)])
@@ -56,7 +49,6 @@ func runClassesAndObjectsSmoke(): Int64 {
         println("constructor did not assign width")
         return 6
     }
-    JSRuntime.close(widthValue)
 
     let areaMethod: Extern<JSRuntime> = JSRuntime.memberAccess(instance, "area")
     let area: Extern<JSRuntime> = JSRuntime.functionCall(areaMethod, [])
@@ -64,10 +56,6 @@ func runClassesAndObjectsSmoke(): Int64 {
         println("constructed class method call failed")
         return 7
     }
-    JSRuntime.close(area)
-    JSRuntime.close(areaMethod)
-    JSRuntime.close(instance)
-    JSRuntime.close(classValue)
 
     println("classes_and_objects ok")
     return 0

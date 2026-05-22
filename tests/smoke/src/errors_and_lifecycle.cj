@@ -7,7 +7,6 @@ func runErrorsAndLifecycleSmoke(): Int64 {
     let throwingFunction: Extern<JSRuntime> = JSRuntime.evalScript("function fail() { throw new Error('function failed') }; fail")
     try {
         let unexpected: Extern<JSRuntime> = JSRuntime.functionCall(throwingFunction, [])
-        JSRuntime.close(unexpected)
         println("throwing function unexpectedly succeeded")
         return 1
     } catch (e: Exception) {
@@ -16,12 +15,10 @@ func runErrorsAndLifecycleSmoke(): Int64 {
             return 2
         }
     }
-    JSRuntime.close(throwingFunction)
 
     let throwingConstructor: Extern<JSRuntime> = JSRuntime.evalScript("class Broken { constructor() { throw new Error('constructor failed') } }; Broken")
     try {
         let unexpected: Extern<JSRuntime> = JSRuntime.functionCall(throwingConstructor, [])
-        JSRuntime.close(unexpected)
         println("throwing constructor unexpectedly succeeded")
         return 3
     } catch (e: Exception) {
@@ -30,11 +27,9 @@ func runErrorsAndLifecycleSmoke(): Int64 {
             return 4
         }
     }
-    JSRuntime.close(throwingConstructor)
 
     try {
         let unexpected: Extern<JSRuntime> = JSRuntime.getModule("js_examples/nok/missing_module.js")
-        JSRuntime.close(unexpected)
         println("missing module unexpectedly loaded")
         return 5
     } catch (e: Exception) {
@@ -46,7 +41,6 @@ func runErrorsAndLifecycleSmoke(): Int64 {
 
     try {
         let unexpected: Extern<JSRuntime> = JSRuntime.getModule("js_examples/nok/broken_module.js")
-        JSRuntime.close(unexpected)
         println("broken module unexpectedly loaded")
         return 7
     } catch (e: Exception) {
@@ -58,7 +52,6 @@ func runErrorsAndLifecycleSmoke(): Int64 {
 
     try {
         let unexpected: Extern<JSRuntime> = JSRuntime.evalScript("function {")
-        JSRuntime.close(unexpected)
         println("invalid JavaScript unexpectedly succeeded")
         return 9
     } catch (e: Exception) {
@@ -74,7 +67,6 @@ func runErrorsAndLifecycleSmoke(): Int64 {
             println("repeated eval failed")
             return 11
         }
-        JSRuntime.close(result)
     }
 
     println("errors_and_lifecycle ok")

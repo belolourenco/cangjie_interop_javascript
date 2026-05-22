@@ -10,8 +10,6 @@ func runFunctionsSmoke(): Int64 {
         println("two-argument function call failed")
         return 1
     }
-    JSRuntime.close(sum)
-    JSRuntime.close(add)
 
     let fortyTwo: Extern<JSRuntime> = JSRuntime.evalScript("function fortyTwo() { return 42 }; fortyTwo")
     let fortyTwoResult: Extern<JSRuntime> = JSRuntime.functionCall(fortyTwo, [])
@@ -19,8 +17,6 @@ func runFunctionsSmoke(): Int64 {
         println("zero-argument function call failed")
         return 2
     }
-    JSRuntime.close(fortyTwoResult)
-    JSRuntime.close(fortyTwo)
 
     let double: Extern<JSRuntime> = JSRuntime.evalScript("function double(x) { return x * 2 }; double")
     let doubleResult: Extern<JSRuntime> = JSRuntime.functionCall(double, [Int32(21)])
@@ -28,8 +24,6 @@ func runFunctionsSmoke(): Int64 {
         println("one-argument function call failed")
         return 3
     }
-    JSRuntime.close(doubleResult)
-    JSRuntime.close(double)
 
     let objectValue: Extern<JSRuntime> = JSRuntime.evalScript("({ base: 10, add(n) { return this.base + n } })")
     let method: Extern<JSRuntime> = JSRuntime.memberAccess(objectValue, "add")
@@ -38,9 +32,6 @@ func runFunctionsSmoke(): Int64 {
         println("method call did not preserve this value")
         return 4
     }
-    JSRuntime.close(methodResult)
-    JSRuntime.close(method)
-    JSRuntime.close(objectValue)
 
     println("functions ok")
     return 0
