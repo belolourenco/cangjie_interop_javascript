@@ -104,6 +104,46 @@ static value_handle *new_value_handle(runtime_handle *runtime, JSValue value) {
     return handle;
 }
 
+static JSValue new_mutable_namespace_object(runtime_handle *handle, JSValueConst namespace_value) {
+    JSContext *ctx = handle->context;
+    JSValue object = JS_NewObject(ctx);
+    if (JS_IsException(object)) {
+        return JS_EXCEPTION;
+    }
+
+    JSPropertyEnum *properties = NULL;
+    uint32_t property_count = 0;
+    int status = JS_GetOwnPropertyNames(
+        ctx,
+        &properties,
+        &property_count,
+        namespace_value,
+        JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY);
+    if (status < 0) {
+        JS_FreeValue(ctx, object);
+        return JS_EXCEPTION;
+    }
+
+    for (uint32_t i = 0; i < property_count; i++) {
+        JSValue value = JS_GetProperty(ctx, namespace_value, properties[i].atom);
+        if (JS_IsException(value)) {
+            JS_FreePropertyEnum(ctx, properties, property_count);
+            JS_FreeValue(ctx, object);
+            return JS_EXCEPTION;
+        }
+
+        status = JS_DefinePropertyValue(ctx, object, properties[i].atom, value, JS_PROP_C_W_E);
+        if (status < 0) {
+            JS_FreePropertyEnum(ctx, properties, property_count);
+            JS_FreeValue(ctx, object);
+            return JS_EXCEPTION;
+        }
+    }
+
+    JS_FreePropertyEnum(ctx, properties, property_count);
+    return object;
+}
+
 static unsigned char *read_file(const char *path, size_t *length) {
     FILE *file = fopen(path, "rb");
     if (file == NULL) {
@@ -292,9 +332,16 @@ value_handle *runtime_import_module(runtime_handle *handle, const char *path) {
         return NULL;
     }
 
+    JSValue mutable_namespace = new_mutable_namespace_object(handle, namespace_value);
+    JS_FreeValue(handle->context, namespace_value);
+    if (JS_IsException(mutable_namespace)) {
+        capture_exception(handle);
+        return NULL;
+    }
+
     struct module_cache_entry *entry = (struct module_cache_entry *)calloc(1, sizeof(struct module_cache_entry));
     if (entry == NULL) {
-        JS_FreeValue(handle->context, namespace_value);
+        JS_FreeValue(handle->context, mutable_namespace);
         set_error(handle, "failed to allocate JavaScript module cache entry");
         return NULL;
     }
@@ -302,16 +349,16 @@ value_handle *runtime_import_module(runtime_handle *handle, const char *path) {
     entry->path = copy_string(path);
     if (entry->path == NULL) {
         free(entry);
-        JS_FreeValue(handle->context, namespace_value);
+        JS_FreeValue(handle->context, mutable_namespace);
         set_error(handle, "failed to allocate JavaScript module path");
         return NULL;
     }
 
-    entry->namespace_value = JS_DupValue(handle->context, namespace_value);
+    entry->namespace_value = JS_DupValue(handle->context, mutable_namespace);
     entry->next = handle->module_cache;
     handle->module_cache = entry;
 
-    return new_value_handle(handle, namespace_value);
+    return new_value_handle(handle, mutable_namespace);
 }
 
 void value_destroy(value_handle *handle) {

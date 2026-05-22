@@ -224,7 +224,6 @@ private func jsIndex(arg: Any): Int64 {
 private func externContentToValue(content: Any): CPointer<Unit> {
     match (content) {
         case value: CPointer<Unit> => value
-        case module: (String, CPointer<Unit>) => module[1]
         case _ => throw ExternConversionException("Extern value does not contain a JavaScript value")
     }
 }
@@ -232,7 +231,6 @@ private func externContentToValue(content: Any): CPointer<Unit> {
 private func closeExternContent(content: Any): Unit {
     match (content) {
         case value: CPointer<Unit> => unsafe { value_destroy(value) }
-        case module: (String, CPointer<Unit>) => unsafe { value_destroy(module[1]) }
         case methodAndThis: (CPointer<Unit>, CPointer<Unit>) => unsafe { value_destroy(methodAndThis[0]) }
         case _ => ()
     }
@@ -445,13 +443,11 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
             throw ExternDynamicException(runtimeError(runtime))
         }
 
-        Extern<JSRuntime>(("module", namespace))
+        Extern<JSRuntime>(namespace)
     }
 
     public static func memberAccess(e: Extern<JSRuntime>, field: String): Extern<JSRuntime> {
         match (e.content) {
-            case module: (String, CPointer<Unit>) =>
-                Extern<JSRuntime>(getProperty(module[1], field))
             case value: CPointer<Unit> =>
                 let fieldValue = getProperty(value, field)
                 if (valueIsFunction(fieldValue)) {
@@ -466,7 +462,12 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
     public static func functionCall(e: Extern<JSRuntime>, args: Array<Any>): Extern<JSRuntime> {
         match (e.content) {
             case methodAndThis: (CPointer<Unit>, CPointer<Unit>) =>
-                Extern<JSRuntime>(callValue(methodAndThis[0], methodAndThis[1], toJSValues(args)))
+                let jsArgs = toJSValues(args)
+                try {
+                    return Extern<JSRuntime>(callValue(methodAndThis[0], methodAndThis[1], jsArgs))
+                } catch (_) {
+                    return Extern<JSRuntime>(constructValue(methodAndThis[0], jsArgs))
+                }
             case value: CPointer<Unit> =>
                 let jsArgs = toJSValues(args)
                 try {
@@ -482,8 +483,6 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
         match (e.content) {
             case target: CPointer<Unit> =>
                 setProperty(target, field, toJSValue(value))
-            case _: (String, CPointer<Unit>) =>
-                throw ExternDynamicException("Cannot assign to JavaScript module namespace")
             case _ => throw ExternDynamicException("Unsupported assignment")
         }
     }
