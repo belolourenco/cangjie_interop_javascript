@@ -87,6 +87,52 @@ private func valueFromCallHandle(runtime: CPointer<Unit>, value: CPointer<Unit>)
     value
 }
 
+private class JSValueRef {
+    private let handle: CPointer<Unit>
+
+    init(handle: CPointer<Unit>) {
+        this.handle = handle
+    }
+
+    func pointer(): CPointer<Unit> {
+        handle
+    }
+
+    ~init() {
+        unsafe { value_destroy(handle) }
+    }
+}
+
+private class JSMethodRef {
+    let function: JSValueRef
+    let receiver: JSValueRef
+
+    init(function: JSValueRef, receiver: JSValueRef) {
+        this.function = function
+        this.receiver = receiver
+    }
+}
+
+private func jsExtern(handle: CPointer<Unit>): Extern<JSRuntime> {
+    Extern<JSRuntime>(JSValueRef(handle))
+}
+
+private func jsExtern(ref: JSValueRef): Extern<JSRuntime> {
+    Extern<JSRuntime>(ref)
+}
+
+private func jsExtern(method: JSMethodRef): Extern<JSRuntime> {
+    Extern<JSRuntime>(method)
+}
+
+private func externContentToRef(content: Any): JSValueRef {
+    match (content) {
+        case value: JSValueRef => value
+        case value: CPointer<Unit> => JSValueRef(value)
+        case _ => throw ExternConversionException("Extern value does not contain a JavaScript value")
+    }
+}
+
 private func valueKind(value: CPointer<Unit>): Int64 {
     if (value.isNull()) {
         throw ExternDynamicException("JavaScript value handle must not be null")
@@ -223,10 +269,7 @@ private func jsIndex(arg: Any): Int64 {
 }
 
 private func externContentToValue(content: Any): CPointer<Unit> {
-    match (content) {
-        case value: CPointer<Unit> => value
-        case _ => throw ExternConversionException("Extern value does not contain a JavaScript value")
-    }
+    externContentToRef(content).pointer()
 }
 
 private func quickJS2Cangjie<T>(value: CPointer<Unit>, cjType: Option<T>) {
@@ -320,29 +363,29 @@ private func quickJS2Cangjie<T>(value: CPointer<Unit>, cjType: Option<T>) {
 abstract public class JSRuntime <: Runtime<JSRuntime> {
     private static let runtime = createRuntime()
 
-    private static func toJSBigInt(value: String): CPointer<Unit> {
+    private static func toJSBigInt(value: String): JSValueRef {
         let result = evalScript("${value}n")
-        externContentToValue(result.content)
+        externContentToRef(result.content)
     }
 
-    private static func toJSValue(value: Any): CPointer<Unit> {
+    private static func toJSValue(value: Any): JSValueRef {
         match (value) {
             case e: Extern<JSRuntime> =>
-                externContentToValue(e.content)
+                externContentToRef(e.content)
             case handle: CPointer<Unit> =>
-                handle
+                JSValueRef(handle)
             case i: Int8 =>
-                valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(i)) })
+                JSValueRef(valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(i)) }))
             case i: Int16 =>
-                valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(i)) })
+                JSValueRef(valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(i)) }))
             case i: Int32 =>
-                valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(i)) })
+                JSValueRef(valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(i)) }))
             case i: Int64 =>
                 toJSBigInt("${i}")
             case i: UInt8 =>
-                valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(i)) })
+                JSValueRef(valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(i)) }))
             case i: UInt16 =>
-                valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(i)) })
+                JSValueRef(valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(i)) }))
             case i: UInt32 =>
                 toJSBigInt("${i}")
             case i: UInt64 =>
@@ -350,32 +393,36 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
             case i: BigInt =>
                 toJSBigInt("${i}")
             case f: Float16 =>
-                valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(f)) })
+                JSValueRef(valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(f)) }))
             case f: Float32 =>
-                valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(f)) })
+                JSValueRef(valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, Float64(f)) }))
             case f: Float64 =>
-                valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, f) })
+                JSValueRef(valueFromRuntimeHandle(runtime, unsafe { runtime_new_number(runtime, f) }))
             case b: Bool =>
-                valueFromRuntimeHandle(runtime, unsafe { runtime_new_bool(runtime, boolAsInt64(b)) })
+                JSValueRef(valueFromRuntimeHandle(runtime, unsafe { runtime_new_bool(runtime, boolAsInt64(b)) }))
             case s: String =>
                 let cValue = unsafe { LibC.mallocCString(s) }
                 let handle = unsafe { runtime_new_string(runtime, cValue) }
                 unsafe { LibC.free(cValue) }
-                valueFromRuntimeHandle(runtime, handle)
+                JSValueRef(valueFromRuntimeHandle(runtime, handle))
             case _ => throw ExternConversionException("Unsupported type by JSRuntime")
         }
     }
 
-    private static func toJSValues(args: Array<Any>): Array<CPointer<Unit>> {
+    private static func toJSValues(args: Array<Any>): Array<JSValueRef> {
         args.map(toJSValue)
     }
 
-    private static func callValue(function: CPointer<Unit>, thisValue: CPointer<Unit>, args: Array<CPointer<Unit>>): CPointer<Unit> {
-        let nativeArgs = args
+    private static func refPointer(ref: JSValueRef): CPointer<Unit> {
+        ref.pointer()
+    }
+
+    private static func callValue(function: JSValueRef, thisValue: JSValueRef, args: Array<JSValueRef>): CPointer<Unit> {
+        let nativeArgs = args.map(refPointer)
         unsafe {
             let rawNativeArgs = acquireArrayRawData(nativeArgs)
             try {
-                let result = valueFromCallHandle(runtime, value_call(function, thisValue, rawNativeArgs.pointer, Int32(args.size)))
+                let result = valueFromCallHandle(runtime, value_call(function.pointer(), thisValue.pointer(), rawNativeArgs.pointer, Int32(args.size)))
                 releaseArrayRawData(rawNativeArgs)
                 return result
             } catch (e: Exception) {
@@ -385,12 +432,12 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
         }
     }
 
-    private static func constructValue(constructor: CPointer<Unit>, args: Array<CPointer<Unit>>): CPointer<Unit> {
-        let nativeArgs = args
+    private static func constructValue(constructor: JSValueRef, args: Array<JSValueRef>): CPointer<Unit> {
+        let nativeArgs = args.map(refPointer)
         unsafe {
             let rawNativeArgs = acquireArrayRawData(nativeArgs)
             try {
-                let result = valueFromCallHandle(runtime, value_construct(constructor, rawNativeArgs.pointer, Int32(args.size)))
+                let result = valueFromCallHandle(runtime, value_construct(constructor.pointer(), rawNativeArgs.pointer, Int32(args.size)))
                 releaseArrayRawData(rawNativeArgs)
                 return result
             } catch (e: Exception) {
@@ -408,7 +455,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
             throw ExternDynamicException(runtimeError(runtime))
         }
 
-        Extern<JSRuntime>(value)
+        jsExtern(value)
     }
 
     public static func enableStdModule(): Unit {
@@ -426,7 +473,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
             throw ExternDynamicException(runtimeError(runtime))
         }
 
-        Extern<JSRuntime>(value)
+        jsExtern(value)
     }
 
     public static func getModule(moduleName: String): Extern<JSRuntime> {
@@ -437,17 +484,17 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
             throw ExternDynamicException(runtimeError(runtime))
         }
 
-        Extern<JSRuntime>(namespace)
+        jsExtern(namespace)
     }
 
     public static func memberAccess(e: Extern<JSRuntime>, field: String): Extern<JSRuntime> {
         match (e.content) {
-            case value: CPointer<Unit> =>
-                let fieldValue = getProperty(value, field)
+            case value: JSValueRef =>
+                let fieldValue = getProperty(value.pointer(), field)
                 if (valueIsFunction(fieldValue)) {
-                    Extern<JSRuntime>((fieldValue, value))
+                    jsExtern(JSMethodRef(JSValueRef(fieldValue), value))
                 } else {
-                    Extern<JSRuntime>(fieldValue)
+                    jsExtern(fieldValue)
                 }
             case _ => throw ExternDynamicException("Unsupported member access")
         }
@@ -455,19 +502,19 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
 
     public static func functionCall(e: Extern<JSRuntime>, args: Array<Any>): Extern<JSRuntime> {
         match (e.content) {
-            case methodAndThis: (CPointer<Unit>, CPointer<Unit>) =>
+            case method: JSMethodRef =>
                 let jsArgs = toJSValues(args)
                 try {
-                    return Extern<JSRuntime>(callValue(methodAndThis[0], methodAndThis[1], jsArgs))
+                    return jsExtern(callValue(method.function, method.receiver, jsArgs))
                 } catch (_) {
-                    return Extern<JSRuntime>(constructValue(methodAndThis[0], jsArgs))
+                    return jsExtern(constructValue(method.function, jsArgs))
                 }
-            case value: CPointer<Unit> =>
+            case value: JSValueRef =>
                 let jsArgs = toJSValues(args)
                 try {
-                    return Extern<JSRuntime>(callValue(value, CPointer<Unit>(), jsArgs))
+                    return jsExtern(callValue(value, JSValueRef(CPointer<Unit>()), jsArgs))
                 } catch (_) {
-                    return Extern<JSRuntime>(constructValue(value, jsArgs))
+                    return jsExtern(constructValue(value, jsArgs))
                 }
             case _ => throw ExternDynamicException("Expected function or class")
         }
@@ -475,18 +522,19 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
 
     public static func memberUpdate(e: Extern<JSRuntime>, field: String, value: Any): Unit {
         match (e.content) {
-            case target: CPointer<Unit> =>
-                setProperty(target, field, toJSValue(value))
+            case target: JSValueRef =>
+                let jsValue = toJSValue(value)
+                setProperty(target.pointer(), field, jsValue.pointer())
             case _ => throw ExternDynamicException("Unsupported assignment")
         }
     }
 
     public static func indexAccess(e: Extern<JSRuntime>, arg: Any): Extern<JSRuntime> {
         match (e.content) {
-            case value: CPointer<Unit> =>
+            case value: JSValueRef =>
                 match (arg) {
-                    case key: String => Extern<JSRuntime>(getProperty(value, key))
-                    case _ => Extern<JSRuntime>(getIndex(value, jsIndex(arg)))
+                    case key: String => jsExtern(getProperty(value.pointer(), key))
+                    case _ => jsExtern(getIndex(value.pointer(), jsIndex(arg)))
                 }
             case _ => throw ExternDynamicException("Expected JavaScript array or object")
         }
@@ -494,10 +542,14 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
 
     public static func indexUpdate(e: Extern<JSRuntime>, arg: Any, value: Any): Unit {
         match (e.content) {
-            case target: CPointer<Unit> =>
+            case target: JSValueRef =>
                 match (arg) {
-                    case key: String => setProperty(target, key, toJSValue(value))
-                    case _ => setIndex(target, jsIndex(arg), toJSValue(value))
+                    case key: String =>
+                        let jsValue = toJSValue(value)
+                        setProperty(target.pointer(), key, jsValue.pointer())
+                    case _ =>
+                        let jsValue = toJSValue(value)
+                        setIndex(target.pointer(), jsIndex(arg), jsValue.pointer())
                 }
             case _ => throw ExternDynamicException("Expected JavaScript array or object")
         }
@@ -509,6 +561,6 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
     }
 
     public static func toExtern<T>(value: T): Extern<JSRuntime> {
-        Extern<JSRuntime>(toJSValue(value))
+        jsExtern(toJSValue(value))
     }
 }
