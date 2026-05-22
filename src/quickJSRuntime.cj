@@ -8,6 +8,7 @@ foreign func runtime_last_error(handle: CPointer<Unit>): CString
 foreign func runtime_enable_std_module(handle: CPointer<Unit>): Int64
 
 foreign func runtime_eval_value(handle: CPointer<Unit>, source: CString): CPointer<Unit>
+foreign func runtime_get_global_property(handle: CPointer<Unit>, name: CString): CPointer<Unit>
 foreign func runtime_new_bool(handle: CPointer<Unit>, value: Int64): CPointer<Unit>
 foreign func runtime_new_number(handle: CPointer<Unit>, value: Float64): CPointer<Unit>
 foreign func runtime_new_string(handle: CPointer<Unit>, value: CString): CPointer<Unit>
@@ -433,6 +434,17 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
         if (status != 0) {
             throw ExternDynamicException(runtimeError(runtime))
         }
+    }
+
+    public static func globalAccess(name: String): Extern<JSRuntime> {
+        let cName = unsafe { LibC.mallocCString(name) }
+        let value = unsafe { runtime_get_global_property(runtime, cName) }
+        unsafe { LibC.free(cName) }
+        if (value.isNull()) {
+            throw ExternDynamicException(runtimeError(runtime))
+        }
+
+        Extern<JSRuntime>(value)
     }
 
     public static func getModule(moduleName: String): Extern<JSRuntime> {

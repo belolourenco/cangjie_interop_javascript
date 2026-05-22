@@ -240,6 +240,27 @@ value_handle *runtime_eval_value(runtime_handle *handle, const char *source) {
     return new_value_handle(handle, value);
 }
 
+value_handle *runtime_get_global_property(runtime_handle *handle, const char *name) {
+    if (!valid_runtime(handle)) {
+        return NULL;
+    }
+    if (name == NULL) {
+        set_error(handle, "global property name must not be null");
+        return NULL;
+    }
+
+    clear_error(handle);
+    JSValue global = JS_GetGlobalObject(handle->context);
+    JSValue value = JS_GetPropertyStr(handle->context, global, name);
+    JS_FreeValue(handle->context, global);
+    if (JS_IsException(value)) {
+        capture_exception(handle);
+        return NULL;
+    }
+
+    return new_value_handle(handle, value);
+}
+
 value_handle *runtime_new_bool(runtime_handle *handle, int64_t value) {
     if (!valid_runtime(handle)) {
         return NULL;

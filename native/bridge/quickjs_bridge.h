@@ -11,6 +11,7 @@ const char *runtime_last_error(runtime_handle *handle);
 int64_t runtime_enable_std_module(runtime_handle *handle);
 
 value_handle *runtime_eval_value(runtime_handle *handle, const char *source);
+value_handle *runtime_get_global_property(runtime_handle *handle, const char *name);
 value_handle *runtime_new_bool(runtime_handle *handle, int64_t value);
 value_handle *runtime_new_number(runtime_handle *handle, double value);
 value_handle *runtime_new_string(runtime_handle *handle, const char *value);
