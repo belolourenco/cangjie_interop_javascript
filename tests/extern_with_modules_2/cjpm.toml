@@ -12,4 +12,4 @@
 
 [dependencies]
   interop_javascript = { path = "../.." }
-  extern = { git = "https://github.com/belolourenco/cangjie_extern.git", branch = "main" }
+  extern = { git = "https://github.com/belolourenco/cangjie_extern.git", branch = "extern_as_interface" }

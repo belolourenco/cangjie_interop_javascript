@@ -233,14 +233,23 @@ private func closeExternContent(content: Any): Unit {
     }
 }
 
-extend Extern<JSRuntime> {
-    public func close(): Unit {
-        closeExternContent(content)
+public class JSExtern <: Extern<JSRuntime> {
+    public let content: Any
+
+    public init(content: Any) {
+        this.content = content
+    }
+}
+
+private func externContent(e: Extern<JSRuntime>): Any {
+    match (e) {
+        case jsExtern: JSExtern => jsExtern.content
+        case _ => throw ExternConversionException("Extern value was not created by JSRuntime")
     }
 }
 
 private func closeExtern(e: Extern<JSRuntime>): Unit {
-    e.close()
+    closeExternContent(externContent(e))
 }
 
 private func quickJS2Cangjie<T>(value: CPointer<Unit>, cjType: Option<T>) {
@@ -336,13 +345,13 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
 
     private static func toJSBigInt(value: String): CPointer<Unit> {
         let result = evalScript("${value}n")
-        externContentToValue(result.content)
+        externContentToValue(externContent(result))
     }
 
     private static func toJSValue(value: Any): CPointer<Unit> {
         match (value) {
             case e: Extern<JSRuntime> =>
-                externContentToValue(e.content)
+                externContentToValue(externContent(e))
             case handle: CPointer<Unit> =>
                 handle
             case i: Int8 =>
@@ -422,7 +431,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
             throw ExternDynamicException(runtimeError(runtime))
         }
 
-        Extern<JSRuntime>(value)
+        JSExtern(value)
     }
 
     public static func enableStdModule(): Unit {
@@ -440,41 +449,41 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
             throw ExternDynamicException(runtimeError(runtime))
         }
 
-        Extern<JSRuntime>(("module", namespace))
+        JSExtern(("module", namespace))
     }
 
     public static func memberAccess(e: Extern<JSRuntime>, field: String): Extern<JSRuntime> {
-        match (e.content) {
+        match (externContent(e)) {
             case module: (String, CPointer<Unit>) =>
-                Extern<JSRuntime>(getProperty(module[1], field))
+                JSExtern(getProperty(module[1], field))
             case value: CPointer<Unit> =>
                 let fieldValue = getProperty(value, field)
                 if (valueIsFunction(fieldValue)) {
-                    Extern<JSRuntime>((fieldValue, value))
+                    JSExtern((fieldValue, value))
                 } else {
-                    Extern<JSRuntime>(fieldValue)
+                    JSExtern(fieldValue)
                 }
             case _ => throw ExternDynamicException("Unsupported member access")
         }
     }
 
     public static func functionCall(e: Extern<JSRuntime>, args: Array<Any>): Extern<JSRuntime> {
-        match (e.content) {
+        match (externContent(e)) {
             case methodAndThis: (CPointer<Unit>, CPointer<Unit>) =>
-                Extern<JSRuntime>(callValue(methodAndThis[0], methodAndThis[1], toJSValues(args)))
+                JSExtern(callValue(methodAndThis[0], methodAndThis[1], toJSValues(args)))
             case value: CPointer<Unit> =>
                 let jsArgs = toJSValues(args)
                 try {
-                    return Extern<JSRuntime>(callValue(value, CPointer<Unit>(), jsArgs))
+                    return JSExtern(callValue(value, CPointer<Unit>(), jsArgs))
                 } catch (_) {
-                    return Extern<JSRuntime>(constructValue(value, jsArgs))
+                    return JSExtern(constructValue(value, jsArgs))
                 }
             case _ => throw ExternDynamicException("Expected function or class")
         }
     }
 
     public static func memberUpdate(e: Extern<JSRuntime>, field: String, value: Any): Unit {
-        match (e.content) {
+        match (externContent(e)) {
             case target: CPointer<Unit> =>
                 setProperty(target, field, toJSValue(value))
             case _: (String, CPointer<Unit>) =>
@@ -485,16 +494,16 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
 
     public static func indexAccess(e: Extern<JSRuntime>, arg: Any): Extern<JSRuntime> {
         let index = jsIndex(arg)
-        match (e.content) {
+        match (externContent(e)) {
             case value: CPointer<Unit> =>
-                Extern<JSRuntime>(getIndex(value, index))
+                JSExtern(getIndex(value, index))
             case _ => throw ExternDynamicException("Expected JavaScript array")
         }
     }
 
     public static func indexUpdate(e: Extern<JSRuntime>, arg: Any, value: Any): Unit {
         let index = jsIndex(arg)
-        match (e.content) {
+        match (externContent(e)) {
             case target: CPointer<Unit> =>
                 setIndex(target, index, toJSValue(value))
             case _ => throw ExternDynamicException("Expected JavaScript array")
@@ -503,11 +512,11 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
 
     public static func fromExtern<T>(e: Extern<JSRuntime>): T {
         let dummy: Option<T> = None
-        quickJS2Cangjie(externContentToValue(e.content), dummy)
+        quickJS2Cangjie(externContentToValue(externContent(e)), dummy)
     }
 
     public static func toExtern<T>(value: T): Extern<JSRuntime> {
-        Extern<JSRuntime>(toJSValue(value))
+        JSExtern(toJSValue(value))
     }
 
     public static func close(e: Extern<JSRuntime>): Unit {
