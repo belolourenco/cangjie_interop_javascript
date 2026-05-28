@@ -12,14 +12,14 @@ func runLoadModulesSmoke(): Int64 {
     let lookup: Extern<JSRuntime> = JSRuntime.memberAccess(module, "lookup")
     let siteValue: Extern<JSRuntime> = JSRuntime.functionCall(lookup, [47.6205, -122.3493])
     let siteName: Extern<JSRuntime> = JSRuntime.memberAccess(siteValue, "name")
-    if (JSRuntime.fromExtern<String>(siteName) != "Space Needle") {
+    if (JSRuntime.fromExtern<String>(JSRuntime.dereference(siteName)) != "Space Needle") {
         println("module function returned unexpected object")
         return 1
     }
 
     let coordinatesValue: Extern<JSRuntime> = JSRuntime.memberAccess(siteValue, "coordinates")
     let longitude: Extern<JSRuntime> = JSRuntime.indexAccess(coordinatesValue, 0)
-    if (JSRuntime.fromExtern<Float64>(longitude) != -122.3493) {
+    if (JSRuntime.fromExtern<Float64>(JSRuntime.dereference(longitude)) != -122.3493) {
         println("module function returned unexpected longitude")
         return 2
     }
@@ -36,7 +36,7 @@ func runLoadModulesSmoke(): Int64 {
     let marker: Extern<JSRuntime> = JSRuntime.memberAccess(module, "moduleMarker")
     let cachedModule: Extern<JSRuntime> = JSRuntime.getModule("js_examples/ok/shape_module.js")
     let cachedMarker: Extern<JSRuntime> = JSRuntime.memberAccess(cachedModule, "moduleMarker")
-    if (JSRuntime.fromExtern<Float64>(marker) != JSRuntime.fromExtern<Float64>(cachedMarker)) {
+    if (JSRuntime.fromExtern<Float64>(JSRuntime.dereference(marker)) != JSRuntime.fromExtern<Float64>(JSRuntime.dereference(cachedMarker))) {
         println("module cache did not preserve evaluated namespace")
         return 4
     }

@@ -1,4 +1,4 @@
 version = 0
 
 [requires]
-  extern = {git = "https://github.com/belolourenco/cangjie_extern.git", commitId = "c1333d55a8829b3e9058bdb0e987639305590c43", branch = "main"}
+  extern = {git = "https://github.com/belolourenco/cangjie_extern.git", commitId = "79f6d2cad52f3b6f839e2328ea3b061d88fdd286", branch = "return_references"}

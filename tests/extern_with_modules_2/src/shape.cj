@@ -7,6 +7,10 @@ private func shapeModule(): Extern<JSRuntime> {
     JSRuntime.getModule("js_examples/shape.js")
 }
 
+private func fromJS<T>(value: Extern<JSRuntime>): T {
+    JSRuntime.fromExtern<T>(JSRuntime.dereference(value))
+}
+
 public class Point {
     public let blob: Extern<JSRuntime>
 
@@ -32,27 +36,27 @@ public class Point {
     public mut prop x: Float64 {
         get() {
             let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "x")
-            JSRuntime.fromExtern<Float64>(value)
+            fromJS<Float64>(value)
         }
         set(value) {
-            JSRuntime.memberUpdate(blob, "x", value)
+            JSRuntime.assign(JSRuntime.memberAccess(blob, "x"), value)
         }
     }
 
     public mut prop y: Float64 {
         get() {
             let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "y")
-            JSRuntime.fromExtern<Float64>(value)
+            fromJS<Float64>(value)
         }
         set(value) {
-            JSRuntime.memberUpdate(blob, "y", value)
+            JSRuntime.assign(JSRuntime.memberAccess(blob, "y"), value)
         }
     }
 
     public func distanceTo(other: Point): Float64 {
         let distanceToMethod: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "distanceTo")
         let result: Extern<JSRuntime> = JSRuntime.functionCall(distanceToMethod, [other.blob])
-        JSRuntime.fromExtern<Float64>(result)
+        fromJS<Float64>(result)
     }
 }
 
@@ -63,19 +67,19 @@ public interface Shape {
     func name(): String {
         let nameMethod: Extern<JSRuntime> = JSRuntime.memberAccess(getBlob(), "name")
         let result: Extern<JSRuntime> = JSRuntime.functionCall(nameMethod, [])
-        JSRuntime.fromExtern<String>(result)
+        fromJS<String>(result)
     }
 
     func area(): Float64 {
         let areaMethod: Extern<JSRuntime> = JSRuntime.memberAccess(getBlob(), "area")
         let result: Extern<JSRuntime> = JSRuntime.functionCall(areaMethod, [])
-        JSRuntime.fromExtern<Float64>(result)
+        fromJS<Float64>(result)
     }
 
     func perimeter(): Float64 {
         let perimeterMethod: Extern<JSRuntime> = JSRuntime.memberAccess(getBlob(), "perimeter")
         let result: Extern<JSRuntime> = JSRuntime.functionCall(perimeterMethod, [])
-        JSRuntime.fromExtern<Float64>(result)
+        fromJS<Float64>(result)
     }
 }
 
@@ -99,40 +103,40 @@ public class Rectangle <: Shape {
     public mut prop topLeft: Point {
         get() {
             let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "topLeft")
-            Point(value)
+            Point(JSRuntime.dereference(value))
         }
         set(value) {
-            JSRuntime.memberUpdate(blob, "topLeft", value.blob)
+            JSRuntime.assign(JSRuntime.memberAccess(blob, "topLeft"), value.blob)
         }
     }
 
     public mut prop bottomRight: Point {
         get() {
             let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "bottomRight")
-            Point(value)
+            Point(JSRuntime.dereference(value))
         }
         set(value) {
-            JSRuntime.memberUpdate(blob, "bottomRight", value.blob)
+            JSRuntime.assign(JSRuntime.memberAccess(blob, "bottomRight"), value.blob)
         }
     }
 
     public mut prop width: Float64 {
         get() {
             let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "width")
-            JSRuntime.fromExtern<Float64>(value)
+            fromJS<Float64>(value)
         }
         set(value) {
-            JSRuntime.memberUpdate(blob, "width", value)
+            JSRuntime.assign(JSRuntime.memberAccess(blob, "width"), value)
         }
     }
 
     public mut prop height: Float64 {
         get() {
             let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "height")
-            JSRuntime.fromExtern<Float64>(value)
+            fromJS<Float64>(value)
         }
         set(value) {
-            JSRuntime.memberUpdate(blob, "height", value)
+            JSRuntime.assign(JSRuntime.memberAccess(blob, "height"), value)
         }
     }
 }
@@ -156,20 +160,20 @@ public class Circle <: Shape {
     public mut prop center: Point {
         get() {
             let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "center")
-            Point(value)
+            Point(JSRuntime.dereference(value))
         }
         set(value) {
-            JSRuntime.memberUpdate(blob, "center", value.blob)
+            JSRuntime.assign(JSRuntime.memberAccess(blob, "center"), value.blob)
         }
     }
 
     public mut prop radius: Float64 {
         get() {
             let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "radius")
-            JSRuntime.fromExtern<Float64>(value)
+            fromJS<Float64>(value)
         }
         set(value) {
-            JSRuntime.memberUpdate(blob, "radius", value)
+            JSRuntime.assign(JSRuntime.memberAccess(blob, "radius"), value)
         }
     }
 }
@@ -193,30 +197,30 @@ public class Triangle <: Shape {
     public mut prop a: Point {
         get() {
             let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "a")
-            Point(value)
+            Point(JSRuntime.dereference(value))
         }
         set(value) {
-            JSRuntime.memberUpdate(blob, "a", value.blob)
+            JSRuntime.assign(JSRuntime.memberAccess(blob, "a"), value.blob)
         }
     }
 
     public mut prop b: Point {
         get() {
             let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "b")
-            Point(value)
+            Point(JSRuntime.dereference(value))
         }
         set(value) {
-            JSRuntime.memberUpdate(blob, "b", value.blob)
+            JSRuntime.assign(JSRuntime.memberAccess(blob, "b"), value.blob)
         }
     }
 
     public mut prop c: Point {
         get() {
             let value: Extern<JSRuntime> = JSRuntime.memberAccess(blob, "c")
-            Point(value)
+            Point(JSRuntime.dereference(value))
         }
         set(value) {
-            JSRuntime.memberUpdate(blob, "c", value.blob)
+            JSRuntime.assign(JSRuntime.memberAccess(blob, "c"), value.blob)
         }
     }
 }

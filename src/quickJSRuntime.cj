@@ -130,6 +130,26 @@ private class JSMethodRef {
     }
 }
 
+private class JSMemberRef {
+    let target: JSValueRef
+    let field: String
+
+    init(target: JSValueRef, field: String) {
+        this.target = target
+        this.field = field
+    }
+}
+
+private class JSIndexRef {
+    let target: JSValueRef
+    let arg: Any
+
+    init(target: JSValueRef, arg: Any) {
+        this.target = target
+        this.arg = arg
+    }
+}
+
 private func jsExtern(handle: CPointer<Unit>): Extern<JSRuntime> {
     Extern<JSRuntime>(JSValueRef(handle))
 }
@@ -140,6 +160,14 @@ private func jsExtern(ref: JSValueRef): Extern<JSRuntime> {
 
 private func jsExtern(method: JSMethodRef): Extern<JSRuntime> {
     Extern<JSRuntime>(method)
+}
+
+private func jsExtern(reference: JSMemberRef): Extern<JSRuntime> {
+    Extern<JSRuntime>(reference)
+}
+
+private func jsExtern(reference: JSIndexRef): Extern<JSRuntime> {
+    Extern<JSRuntime>(reference)
 }
 
 private func externContentToRef(content: Any): JSValueRef {
@@ -289,6 +317,47 @@ private func externContentToValue(content: Any): CPointer<Unit> {
     externContentToRef(content).pointer()
 }
 
+private func dereferenceMember(reference: JSMemberRef): Extern<JSRuntime> {
+    let fieldValue = getProperty(reference.target.pointer(), reference.field)
+    if (valueIsFunction(fieldValue)) {
+        jsExtern(JSMethodRef(JSValueRef(fieldValue), reference.target))
+    } else {
+        jsExtern(fieldValue)
+    }
+}
+
+private func dereferenceIndex(reference: JSIndexRef): Extern<JSRuntime> {
+    let value = match (reference.arg) {
+        case key: String => getProperty(reference.target.pointer(), key)
+        case _ => getIndex(reference.target.pointer(), jsIndex(reference.arg))
+    }
+
+    if (valueIsFunction(value)) {
+        jsExtern(JSMethodRef(JSValueRef(value), reference.target))
+    } else {
+        jsExtern(value)
+    }
+}
+
+private func dereferenceContent(content: Any): Extern<JSRuntime> {
+    match (content) {
+        case reference: JSMemberRef => dereferenceMember(reference)
+        case reference: JSIndexRef => dereferenceIndex(reference)
+        case value: JSValueRef => jsExtern(value)
+        case method: JSMethodRef => jsExtern(method)
+        case _ => throw ExternDynamicException("Unsupported JavaScript reference")
+    }
+}
+
+private func externContentToDereferencedRef(content: Any): JSValueRef {
+    match (content) {
+        case value: JSValueRef => value
+        case reference: JSMemberRef => externContentToRef(dereferenceMember(reference).content)
+        case reference: JSIndexRef => externContentToRef(dereferenceIndex(reference).content)
+        case _ => throw ExternConversionException("Extern value does not contain a JavaScript value")
+    }
+}
+
 private func quickJS2Cangjie<T>(value: CPointer<Unit>, cjType: Option<T>) {
     match (cjType) {
         case _: Option<Bool> =>
@@ -389,7 +458,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
     private static func toJSValue(value: Any): JSValueRef {
         match (value) {
             case e: Extern<JSRuntime> =>
-                externContentToRef(e.content)
+                externContentToDereferencedRef(e.content)
             case handle: CPointer<Unit> =>
                 JSValueRef(handle)
             case i: Int8 =>
@@ -506,20 +575,12 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
     }
 
     public static func memberAccess(e: Extern<JSRuntime>, field: String): Extern<JSRuntime> {
-        match (e.content) {
-            case value: JSValueRef =>
-                let fieldValue = getProperty(value.pointer(), field)
-                if (valueIsFunction(fieldValue)) {
-                    jsExtern(JSMethodRef(JSValueRef(fieldValue), value))
-                } else {
-                    jsExtern(fieldValue)
-                }
-            case _ => throw ExternDynamicException("Unsupported member access")
-        }
+        jsExtern(JSMemberRef(externContentToDereferencedRef(e.content), field))
     }
 
     public static func functionCall(e: Extern<JSRuntime>, args: Array<Any>): Extern<JSRuntime> {
-        match (e.content) {
+        let callable = dereferenceContent(e.content)
+        match (callable.content) {
             case method: JSMethodRef =>
                 let jsArgs = toJSValues(args)
                 try {
@@ -538,39 +599,27 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
         }
     }
 
-    public static func memberUpdate(e: Extern<JSRuntime>, field: String, value: Any): Unit {
+    public static func dereference(e: Extern<JSRuntime>): Extern<JSRuntime> {
+        dereferenceContent(e.content)
+    }
+
+    public static func assign(e: Extern<JSRuntime>, value: Any): Unit {
         match (e.content) {
-            case target: JSValueRef =>
+            case reference: JSMemberRef =>
                 let jsValue = toJSValue(value)
-                setProperty(target.pointer(), field, jsValue.pointer())
-            case _ => throw ExternDynamicException("Unsupported assignment")
+                setProperty(reference.target.pointer(), reference.field, jsValue.pointer())
+            case reference: JSIndexRef =>
+                let jsValue = toJSValue(value)
+                match (reference.arg) {
+                    case key: String => setProperty(reference.target.pointer(), key, jsValue.pointer())
+                    case _ => setIndex(reference.target.pointer(), jsIndex(reference.arg), jsValue.pointer())
+                }
+            case _ => throw ExternDynamicException("Expected JavaScript reference")
         }
     }
 
     public static func indexAccess(e: Extern<JSRuntime>, arg: Any): Extern<JSRuntime> {
-        match (e.content) {
-            case value: JSValueRef =>
-                match (arg) {
-                    case key: String => jsExtern(getProperty(value.pointer(), key))
-                    case _ => jsExtern(getIndex(value.pointer(), jsIndex(arg)))
-                }
-            case _ => throw ExternDynamicException("Expected JavaScript array or object")
-        }
-    }
-
-    public static func indexUpdate(e: Extern<JSRuntime>, arg: Any, value: Any): Unit {
-        match (e.content) {
-            case target: JSValueRef =>
-                match (arg) {
-                    case key: String =>
-                        let jsValue = toJSValue(value)
-                        setProperty(target.pointer(), key, jsValue.pointer())
-                    case _ =>
-                        let jsValue = toJSValue(value)
-                        setIndex(target.pointer(), jsIndex(arg), jsValue.pointer())
-                }
-            case _ => throw ExternDynamicException("Expected JavaScript array or object")
-        }
+        jsExtern(JSIndexRef(externContentToDereferencedRef(e.content), arg))
     }
 
     public static func fromExtern<T>(e: Extern<JSRuntime>): T {

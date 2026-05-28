@@ -112,14 +112,17 @@ Main operations:
 - `JSRuntime.globalAccess(name: String)`
 - `JSRuntime.getModule(moduleName: String)`
 - `JSRuntime.memberAccess(e, field)`
-- `JSRuntime.memberUpdate(e, field, value)`
 - `JSRuntime.indexAccess(e, arg)`
-- `JSRuntime.indexUpdate(e, arg, value)`
+- `JSRuntime.dereference(e)`
+- `JSRuntime.assign(e, value)`
 - `JSRuntime.functionCall(e, args)`
 - `JSRuntime.toExtern(value)`
 - `JSRuntime.fromExtern<T>(e)`
 
 JavaScript values are represented as `Extern<JSRuntime>`.
+Member access and index access return references. Use `JSRuntime.dereference`
+when you want the referenced value, and `JSRuntime.assign` when you want to
+write through the reference.
 
 ## Example
 
@@ -135,14 +138,16 @@ main(): Int64 {
     println(result)
 
     let object: Extern<JSRuntime> = JSRuntime.evalScript("({ name: 'shape', width: 10 })")
+    let nameRef: Extern<JSRuntime> = JSRuntime.memberAccess(object, "name")
     let name: String = JSRuntime.fromExtern<String>(
-        JSRuntime.memberAccess(object, "name")
+        JSRuntime.dereference(nameRef)
     )
     println(name)
 
-    JSRuntime.memberUpdate(object, "width", Float64(20.0))
+    let widthRef: Extern<JSRuntime> = JSRuntime.memberAccess(object, "width")
+    JSRuntime.assign(widthRef, Float64(20.0))
     let width: Float64 = JSRuntime.fromExtern<Float64>(
-        JSRuntime.memberAccess(object, "width")
+        JSRuntime.dereference(widthRef)
     )
     println(width)
 
@@ -156,8 +161,10 @@ JavaScript modules can be loaded with `JSRuntime.getModule(path)`.
 
 ```cj
 let module = JSRuntime.getModule("js_examples/my_module.js")
-let value = JSRuntime.memberAccess(module, "globalNumber")
-let number: Float64 = JSRuntime.fromExtern<Float64>(value)
+let valueRef = JSRuntime.memberAccess(module, "globalNumber")
+let number: Float64 = JSRuntime.fromExtern<Float64>(
+    JSRuntime.dereference(valueRef)
+)
 ```
 
 The module path is resolved by QuickJS from the current working directory of the
