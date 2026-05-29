@@ -1,5 +1,7 @@
 package extern_with_modules
 
+import extern.Extern
+import interop_javascript.JSRuntime
 import std.math.*
 import std.collection.ArrayList
 
@@ -50,9 +52,10 @@ func perimeter_triangle(x1: Float64, y1: Float64, x2: Float64, y2: Float64, x3: 
 }
 
 public func testExternWithModules() {
+    let module: Extern<JSRuntime> = JSRuntime.getModule("js_examples/shape.js")
 
     // ---- Point ----
-    let point1 = Point(10.0, 20.0)
+    let point1 = Point(module, 10.0, 20.0)
     println("Point 1: ${point1.x}, ${point1.y}")
     assert(point1.x == 10.0, "Point 1 x should be 10.0")
     assert(point1.y == 20.0, "Point 1 y should be 20.0")
@@ -62,7 +65,7 @@ public func testExternWithModules() {
     assert(point1.x == 30.0, "Point 1 x should be 30.0")
     assert(point1.y == 20.0, "Point 1 y should be 20.0")
 
-    let point2 = Point(point1)
+    let point2 = Point(module, point1)
     println("Point 2: ${point2.x}, ${point2.y}")
     assert(point2.x == 30.0, "Point 2 x should be 30.0")
     assert(point2.y == 20.0, "Point 2 y should be 20.0")
@@ -97,7 +100,7 @@ public func testExternWithModules() {
     let distance23 = distance(point2.x, point2.y, point3.x, point3.y)
     assert(point2.distanceTo(point3) == distance23, "Distance between point2 and point3 should be ${distance23}")
 
-    let point4 = Point(0.0, 0.0)
+    let point4 = Point(module, 0.0, 0.0)
     println("Point 4: ${point4.x}, ${point4.y}")
     assert(point4.x == 0.0 && point4.y == 0.0, "Point 4 should be (0.0, 0.0)")
     
@@ -105,7 +108,7 @@ public func testExternWithModules() {
     let distance14 = distance(point1.x, point1.y, point4.x, point4.y)
     assert(point1.distanceTo(point4) == distance14, "Distance between point1 and point4 should be ${distance14}")
 
-    let rectangle1 = Rectangle(point1, point4)
+    let rectangle1 = Rectangle(module, point1, point4)
     println("Rectangle 1: (${rectangle1.topLeft.x}, ${rectangle1.topLeft.y}), (${rectangle1.bottomRight.x}, ${rectangle1.bottomRight.y})")
     assert(rectangle1.topLeft.x == point1.x &&
            rectangle1.topLeft.y == point1.y &&
@@ -147,7 +150,7 @@ public func testExternWithModules() {
     assert(point5.x == 12345.0, "Point 5 x should be 12345.0")
     assert(point5.y == 4321.0, "Point 5 y should be 4321.0")
 
-    let circle1 = Circle(point1, 10.0)
+    let circle1 = Circle(module, point1, 10.0)
     println("Circle 1: (${circle1.center.x}, ${circle1.center.y}), radius: ${circle1.radius}")
     assert(circle1.center.x == point1.x && circle1.center.y == point1.y, "Circle 1 center should be (${point1.x}, ${point1.y})")
     assert(circle1.radius == 10.0, "Circle 1 radius should be 10.0")
@@ -161,11 +164,11 @@ public func testExternWithModules() {
     assert(circle1.perimeter() == circle_perimeter, "Circle 1 perimeter should be ${circle_perimeter}")
 
 
-    let p1 = Point(0.0, 0.0)
-    let p2 = Point(10.0, 0.0)
-    let p3 = Point(5.0, 5.0)
+    let p1 = Point(module, 0.0, 0.0)
+    let p2 = Point(module, 10.0, 0.0)
+    let p3 = Point(module, 5.0, 5.0)
     
-    let triangle1 = Triangle(p1, p2, p3)
+    let triangle1 = Triangle(module, p1, p2, p3)
     println("Triangle 1: (${triangle1.a.x}, ${triangle1.a.y}), (${triangle1.b.x}, ${triangle1.b.y}), (${triangle1.c.x}, ${triangle1.c.y})")
     assert(triangle1.a.x == p1.x && triangle1.a.y == p1.y, "Triangle 1 a should be (${p1.x}, ${p1.y})")
     assert(triangle1.b.x == p2.x && triangle1.b.y == p2.y, "Triangle 1 b should be (${p2.x}, ${p2.y})")

@@ -3,16 +3,12 @@ package extern_with_modules
 import extern.Extern
 import interop_javascript.JSRuntime
 
-private func shapeModule(): Extern<JSRuntime> {
-    JSRuntime.getModule("js_examples/shape.js")
-}
-
 public class Point {
     public let blob: Extern<JSRuntime>
 
-    public init(x: Float64, y: Float64) {
+    public init(module: Extern<JSRuntime>, x: Float64, y: Float64) {
         println("Point constructor called with x: ${x}, y: ${y}")
-        let pointConstructor: Extern<JSRuntime> = JSRuntime.memberAccess(shapeModule(), "Point")
+        let pointConstructor: Extern<JSRuntime> = JSRuntime.memberAccess(module, "Point")
         blob = JSRuntime.functionCall(pointConstructor, [x, y])
     }
 
@@ -23,9 +19,9 @@ public class Point {
     }
 
     // Deep copy constructor!
-    public init(other: Point) {
+    public init(module: Extern<JSRuntime>, other: Point) {
         println("Point copy constructor called with x: ${other.x}, y: ${other.y}")
-        let pointConstructor: Extern<JSRuntime> = JSRuntime.memberAccess(shapeModule(), "Point")
+        let pointConstructor: Extern<JSRuntime> = JSRuntime.memberAccess(module, "Point")
         blob = JSRuntime.functionCall(pointConstructor, [other.x, other.y])
     }
 
@@ -82,9 +78,9 @@ public interface Shape {
 public class Rectangle <: Shape {
     public let blob: Extern<JSRuntime>
 
-    public init(topLeft: Point, bottomRight: Point) {
+    public init(module: Extern<JSRuntime>, topLeft: Point, bottomRight: Point) {
         println("Rectangle constructor called with topLeft: ${topLeft.x}, ${topLeft.y} and bottomRight: ${bottomRight.x}, ${bottomRight.y}")
-        let rectangleConstructor: Extern<JSRuntime> = JSRuntime.memberAccess(shapeModule(), "Rectangle")
+        let rectangleConstructor: Extern<JSRuntime> = JSRuntime.memberAccess(module, "Rectangle")
         blob = JSRuntime.functionCall(rectangleConstructor, [topLeft.blob, bottomRight.blob])
     }
 
@@ -140,8 +136,8 @@ public class Rectangle <: Shape {
 public class Circle <: Shape {
     public let blob: Extern<JSRuntime>
 
-    public init(center: Point, radius: Float64) {
-        let circleConstructor: Extern<JSRuntime> = JSRuntime.memberAccess(shapeModule(), "Circle")
+    public init(module: Extern<JSRuntime>, center: Point, radius: Float64) {
+        let circleConstructor: Extern<JSRuntime> = JSRuntime.memberAccess(module, "Circle")
         blob = JSRuntime.functionCall(circleConstructor, [center.blob, radius])
     }
 
@@ -177,8 +173,8 @@ public class Circle <: Shape {
 public class Triangle <: Shape {
     public let blob: Extern<JSRuntime>
 
-    public init(a: Point, b: Point, c: Point) {
-        let triangleConstructor: Extern<JSRuntime> = JSRuntime.memberAccess(shapeModule(), "Triangle")
+    public init(module: Extern<JSRuntime>, a: Point, b: Point, c: Point) {
+        let triangleConstructor: Extern<JSRuntime> = JSRuntime.memberAccess(module, "Triangle")
         blob = JSRuntime.functionCall(triangleConstructor, [a.blob, b.blob, c.blob])
     }
 
