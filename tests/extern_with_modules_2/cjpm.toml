@@ -1,7 +1,7 @@
 [package]
-  cjc-version = "1.0.5"
+  cjc-version = "0.0.1"
   name = "extern_with_modules"
-  description = "Module checks for the extern QuickJS runtime"
+  description = "Module checks for the QuickJS runtime"
   version = "0.1.0"
   target-dir = ""
   output-type = "executable"
@@ -12,4 +12,3 @@
 
 [dependencies]
   interop_javascript = { path = "../.." }
-  extern = { git = "https://github.com/belolourenco/cangjie_extern.git", branch = "main" }

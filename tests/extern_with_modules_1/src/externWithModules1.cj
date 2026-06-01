@@ -1,7 +1,7 @@
 package extern_with_modules
 
-import extern.Extern
-import extern.ExternDynamicException
+import std.interop.Extern
+import std.interop.ExternDynamicException
 import interop_javascript.JSRuntime
 import std.collection.ArrayList
 

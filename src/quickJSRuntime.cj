@@ -1,6 +1,6 @@
 package interop_javascript
 
-import extern.*
+import std.interop.*
 import std.math.numeric.BigInt
 
 foreign func runtime_create(): CPointer<Unit>

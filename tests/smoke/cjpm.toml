@@ -1,5 +1,5 @@
 [package]
-  cjc-version = "1.0.5"
+  cjc-version = "0.0.1"
   name = "smoke"
   description = "Smoke checks for the QuickJS runtime"
   version = "0.1.0"
@@ -12,4 +12,3 @@
 
 [dependencies]
   interop_javascript = { path = "../.." }
-  extern = { git = "https://github.com/belolourenco/cangjie_extern.git", branch = "main" }

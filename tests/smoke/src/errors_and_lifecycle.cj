@@ -1,6 +1,6 @@
 package smoke
 
-import extern.Extern
+import std.interop.Extern
 import interop_javascript.JSRuntime
 
 func runErrorsAndLifecycleSmoke(): Int64 {

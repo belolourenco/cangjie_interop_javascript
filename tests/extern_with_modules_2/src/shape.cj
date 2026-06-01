@@ -1,6 +1,6 @@
 package extern_with_modules
 
-import extern.Extern
+import std.interop.Extern
 import interop_javascript.JSRuntime
 
 public class Point {
