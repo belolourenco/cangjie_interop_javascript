@@ -1,6 +1,5 @@
 package extern_primitive_types
 
-import std.interop.Extern
 import interop_javascript.JSRuntime
 import std.math.numeric.BigInt
 import std.math.*

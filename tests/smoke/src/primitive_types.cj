@@ -1,6 +1,5 @@
 package smoke
 
-import std.interop.Extern
 import interop_javascript.JSRuntime
 import std.math.numeric.BigInt
 

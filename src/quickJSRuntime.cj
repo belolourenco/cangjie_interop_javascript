@@ -1,6 +1,5 @@
 package interop_javascript
 
-import std.interop.*
 import std.math.numeric.BigInt
 
 foreign func runtime_create(): CPointer<Unit>
@@ -383,13 +382,13 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
 
     private static func toJSBigInt(value: String): JSValueRef {
         let result = evalScript("${value}n")
-        externContentToRef(result.content)
+        externContentToRef(getPayload(result))
     }
 
     private static func toJSValue(value: Any): JSValueRef {
         match (value) {
             case e: Extern<JSRuntime> =>
-                externContentToRef(e.content)
+                externContentToRef(getPayload(e))
             case handle: CPointer<Unit> =>
                 JSValueRef(handle)
             case i: Int8 =>
@@ -506,7 +505,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
     }
 
     public static func memberAccess(e: Extern<JSRuntime>, field: String): Extern<JSRuntime> {
-        match (e.content) {
+        match (getPayload(e)) {
             case value: JSValueRef =>
                 let fieldValue = getProperty(value.pointer(), field)
                 if (valueIsFunction(fieldValue)) {
@@ -519,7 +518,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
     }
 
     public static func functionCall(e: Extern<JSRuntime>, args: Array<Any>): Extern<JSRuntime> {
-        match (e.content) {
+        match (getPayload(e)) {
             case method: JSMethodRef =>
                 let jsArgs = toJSValues(args)
                 try {
@@ -539,7 +538,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
     }
 
     public static func memberUpdate(e: Extern<JSRuntime>, field: String, value: Any): Unit {
-        match (e.content) {
+        match (getPayload(e)) {
             case target: JSValueRef =>
                 let jsValue = toJSValue(value)
                 setProperty(target.pointer(), field, jsValue.pointer())
@@ -548,7 +547,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
     }
 
     public static func indexAccess(e: Extern<JSRuntime>, arg: Any): Extern<JSRuntime> {
-        match (e.content) {
+        match (getPayload(e)) {
             case value: JSValueRef =>
                 match (arg) {
                     case key: String => jsExtern(getProperty(value.pointer(), key))
@@ -559,7 +558,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
     }
 
     public static func indexUpdate(e: Extern<JSRuntime>, arg: Any, value: Any): Unit {
-        match (e.content) {
+        match (getPayload(e)) {
             case target: JSValueRef =>
                 match (arg) {
                     case key: String =>
@@ -575,7 +574,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
 
     public static func fromExtern<T>(e: Extern<JSRuntime>): T {
         let dummy: Option<T> = None
-        quickJS2Cangjie(externContentToValue(e.content), dummy)
+        quickJS2Cangjie(externContentToValue(getPayload(e)), dummy)
     }
 
     public static func toExtern<T>(value: T): Extern<JSRuntime> {

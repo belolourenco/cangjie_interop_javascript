@@ -1,6 +1,5 @@
 package smoke
 
-import std.interop.Extern
 import interop_javascript.JSRuntime
 
 func runFunctionsSmoke(): Int64 {
