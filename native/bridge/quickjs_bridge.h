@@ -16,6 +16,7 @@ value_handle *runtime_get_global_property(runtime_handle *handle, const char *na
 value_handle *runtime_new_bool(runtime_handle *handle, int64_t value);
 value_handle *runtime_new_number(runtime_handle *handle, double value);
 value_handle *runtime_new_string(runtime_handle *handle, const char *value);
+value_handle *runtime_new_bigint(runtime_handle *handle, const char *value);
 value_handle *runtime_import_module(runtime_handle *handle, const char *path);
 
 void value_destroy(value_handle *handle);

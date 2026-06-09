@@ -12,6 +12,7 @@ foreign func runtime_get_global_property(handle: CPointer<Unit>, name: CString):
 foreign func runtime_new_bool(handle: CPointer<Unit>, value: Int64): CPointer<Unit>
 foreign func runtime_new_number(handle: CPointer<Unit>, value: Float64): CPointer<Unit>
 foreign func runtime_new_string(handle: CPointer<Unit>, value: CString): CPointer<Unit>
+foreign func runtime_new_bigint(handle: CPointer<Unit>, value: CString): CPointer<Unit>
 foreign func runtime_import_module(handle: CPointer<Unit>, path: CString): CPointer<Unit>
 
 foreign func value_destroy(handle: CPointer<Unit>): Unit
@@ -381,8 +382,10 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
     private static let runtime = runtimeOwner.pointer()
 
     private static func toJSBigInt(value: String): JSValueRef {
-        let result = evalScript("${value}")
-        externContentToRef(getPayload(result))
+        let cValue = unsafe { LibC.mallocCString(value) }
+        let handle = unsafe { runtime_new_bigint(runtime, cValue) }
+        unsafe { LibC.free(cValue) }
+        JSValueRef(valueFromRuntimeHandle(runtime, handle))
     }
 
     private static func toJSValue(value: Any): JSValueRef {

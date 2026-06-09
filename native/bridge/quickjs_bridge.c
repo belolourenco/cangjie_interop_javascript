@@ -348,6 +348,40 @@ value_handle *runtime_new_string(runtime_handle *handle, const char *value) {
     return new_value_handle(handle, js_value);
 }
 
+value_handle *runtime_new_bigint(runtime_handle *handle, const char *value) {
+    if (!valid_runtime(handle)) {
+        return NULL;
+    }
+    if (value == NULL) {
+        set_error(handle, "BigInt value must not be null");
+        return NULL;
+    }
+
+    clear_error(handle);
+
+    JSContext *ctx = handle->context;
+    JSValue global = JS_GetGlobalObject(ctx);
+    JSValue constructor = JS_GetPropertyStr(ctx, global, "BigInt");
+    JS_FreeValue(ctx, global);
+
+    JSValue arg = JS_NewString(ctx, value);
+    if (JS_IsException(arg)) {
+        JS_FreeValue(ctx, constructor);
+        capture_exception(handle);
+        return NULL;
+    }
+
+    JSValue js_value = JS_Call(ctx, constructor, JS_UNDEFINED, 1, &arg);
+    JS_FreeValue(ctx, arg);
+    JS_FreeValue(ctx, constructor);
+    if (JS_IsException(js_value)) {
+        capture_exception(handle);
+        return NULL;
+    }
+
+    return new_value_handle(handle, js_value);
+}
+
 value_handle *runtime_import_module(runtime_handle *handle, const char *path) {
     if (!valid_runtime(handle)) {
         return NULL;
