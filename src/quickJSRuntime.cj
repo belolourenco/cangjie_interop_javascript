@@ -381,7 +381,7 @@ abstract public class JSRuntime <: Runtime<JSRuntime> {
     private static let runtime = runtimeOwner.pointer()
 
     private static func toJSBigInt(value: String): JSValueRef {
-        let result = evalScript("${value}n")
+        let result = evalScript("${value}")
         externContentToRef(getPayload(result))
     }
 
