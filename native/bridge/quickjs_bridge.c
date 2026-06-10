@@ -23,7 +23,7 @@ struct module_cache_entry {
     struct module_cache_entry *next;
 };
 
-struct runtime_handle {
+struct js_runtime_handle {
     JSRuntime *runtime;
     JSContext *context;
     char *last_error;
@@ -33,8 +33,8 @@ struct runtime_handle {
     int std_module_enabled;
 };
 
-struct value_handle {
-    runtime_handle *runtime;
+struct js_value_handle {
+    js_runtime_handle *runtime;
     JSValue value;
 };
 
@@ -51,7 +51,7 @@ static char *copy_string(const char *value) {
     return copy;
 }
 
-static void set_error(runtime_handle *runtime, const char *message) {
+static void set_error(js_runtime_handle *runtime, const char *message) {
     if (runtime == NULL) {
         return;
     }
@@ -60,7 +60,7 @@ static void set_error(runtime_handle *runtime, const char *message) {
     runtime->last_error = copy_string(message);
 }
 
-static void clear_error(runtime_handle *runtime) {
+static void clear_error(js_runtime_handle *runtime) {
     if (runtime == NULL) {
         return;
     }
@@ -69,7 +69,7 @@ static void clear_error(runtime_handle *runtime) {
     runtime->last_error = NULL;
 }
 
-static void capture_exception(runtime_handle *runtime) {
+static void capture_exception(js_runtime_handle *runtime) {
     if (runtime == NULL || runtime->context == NULL) {
         return;
     }
@@ -81,15 +81,15 @@ static void capture_exception(runtime_handle *runtime) {
     JS_FreeValue(runtime->context, exception);
 }
 
-static int valid_runtime(runtime_handle *runtime) {
+static int valid_runtime(js_runtime_handle *runtime) {
     return runtime != NULL && runtime->runtime != NULL && runtime->context != NULL;
 }
 
-static int valid_value(value_handle *value) {
+static int valid_value(js_value_handle *value) {
     return value != NULL && valid_runtime(value->runtime);
 }
 
-static void free_module_cache(runtime_handle *runtime) {
+static void free_module_cache(js_runtime_handle *runtime) {
     if (runtime == NULL || runtime->context == NULL) {
         return;
     }
@@ -105,7 +105,7 @@ static void free_module_cache(runtime_handle *runtime) {
     runtime->module_cache = NULL;
 }
 
-static void free_runtime(runtime_handle *runtime) {
+static void free_runtime(js_runtime_handle *runtime) {
     if (runtime == NULL) {
         return;
     }
@@ -121,18 +121,18 @@ static void free_runtime(runtime_handle *runtime) {
     free(runtime);
 }
 
-static void free_runtime_if_ready(runtime_handle *runtime) {
+static void free_runtime_if_ready(js_runtime_handle *runtime) {
     if (runtime != NULL && runtime->destroying && runtime->value_count == 0) {
         free_runtime(runtime);
     }
 }
 
-static value_handle *new_value_handle(runtime_handle *runtime, JSValue value) {
+static js_value_handle *new_value_handle(js_runtime_handle *runtime, JSValue value) {
     if (!valid_runtime(runtime)) {
         return NULL;
     }
 
-    value_handle *handle = (value_handle *)calloc(1, sizeof(value_handle));
+    js_value_handle *handle = (js_value_handle *)calloc(1, sizeof(js_value_handle));
     if (handle == NULL) {
         JS_FreeValue(runtime->context, value);
         set_error(runtime, "failed to allocate JavaScript value handle");
@@ -145,7 +145,7 @@ static value_handle *new_value_handle(runtime_handle *runtime, JSValue value) {
     return handle;
 }
 
-static JSValue new_mutable_namespace_object(runtime_handle *handle, JSValueConst namespace_value) {
+static JSValue new_mutable_namespace_object(js_runtime_handle *handle, JSValueConst namespace_value) {
     JSContext *ctx = handle->context;
     JSValue object = JS_NewObject(ctx);
     if (JS_IsException(object)) {
@@ -220,8 +220,8 @@ static unsigned char *read_file(const char *path, size_t *length) {
     return buffer;
 }
 
-runtime_handle *runtime_create(void) {
-    runtime_handle *handle = (runtime_handle *)calloc(1, sizeof(runtime_handle));
+js_runtime_handle *js_runtime_create(void) {
+    js_runtime_handle *handle = (js_runtime_handle *)calloc(1, sizeof(js_runtime_handle));
     if (handle == NULL) {
         return NULL;
     }
@@ -239,7 +239,7 @@ runtime_handle *runtime_create(void) {
     return handle;
 }
 
-void runtime_destroy(runtime_handle *handle) {
+void js_runtime_destroy(js_runtime_handle *handle) {
     if (handle == NULL) {
         return;
     }
@@ -248,11 +248,11 @@ void runtime_destroy(runtime_handle *handle) {
     free_runtime_if_ready(handle);
 }
 
-const char *runtime_last_error(runtime_handle *handle) {
+const char *js_runtime_last_error(js_runtime_handle *handle) {
     return handle == NULL || handle->last_error == NULL ? "" : handle->last_error;
 }
 
-int64_t runtime_enable_std_module(runtime_handle *handle) {
+int64_t js_runtime_enable_std_module(js_runtime_handle *handle) {
     if (!valid_runtime(handle)) {
         return 1;
     }
@@ -271,7 +271,7 @@ int64_t runtime_enable_std_module(runtime_handle *handle) {
     return 0;
 }
 
-value_handle *runtime_eval_value(runtime_handle *handle, const char *source) {
+js_value_handle *js_runtime_eval_value(js_runtime_handle *handle, const char *source) {
     if (!valid_runtime(handle)) {
         return NULL;
     }
@@ -290,7 +290,7 @@ value_handle *runtime_eval_value(runtime_handle *handle, const char *source) {
     return new_value_handle(handle, value);
 }
 
-value_handle *runtime_get_global_property(runtime_handle *handle, const char *name) {
+js_value_handle *js_runtime_get_global_property(js_runtime_handle *handle, const char *name) {
     if (!valid_runtime(handle)) {
         return NULL;
     }
@@ -311,7 +311,7 @@ value_handle *runtime_get_global_property(runtime_handle *handle, const char *na
     return new_value_handle(handle, value);
 }
 
-value_handle *runtime_new_bool(runtime_handle *handle, int64_t value) {
+js_value_handle *js_runtime_new_bool(js_runtime_handle *handle, int64_t value) {
     if (!valid_runtime(handle)) {
         return NULL;
     }
@@ -320,7 +320,7 @@ value_handle *runtime_new_bool(runtime_handle *handle, int64_t value) {
     return new_value_handle(handle, JS_NewBool(handle->context, value != 0));
 }
 
-value_handle *runtime_new_number(runtime_handle *handle, double value) {
+js_value_handle *js_runtime_new_number(js_runtime_handle *handle, double value) {
     if (!valid_runtime(handle)) {
         return NULL;
     }
@@ -329,7 +329,7 @@ value_handle *runtime_new_number(runtime_handle *handle, double value) {
     return new_value_handle(handle, JS_NewFloat64(handle->context, value));
 }
 
-value_handle *runtime_new_string(runtime_handle *handle, const char *value) {
+js_value_handle *js_runtime_new_string(js_runtime_handle *handle, const char *value) {
     if (!valid_runtime(handle)) {
         return NULL;
     }
@@ -348,7 +348,7 @@ value_handle *runtime_new_string(runtime_handle *handle, const char *value) {
     return new_value_handle(handle, js_value);
 }
 
-value_handle *runtime_new_bigint(runtime_handle *handle, const char *value) {
+js_value_handle *js_runtime_new_bigint(js_runtime_handle *handle, const char *value) {
     if (!valid_runtime(handle)) {
         return NULL;
     }
@@ -382,7 +382,7 @@ value_handle *runtime_new_bigint(runtime_handle *handle, const char *value) {
     return new_value_handle(handle, js_value);
 }
 
-value_handle *runtime_import_module(runtime_handle *handle, const char *path) {
+js_value_handle *js_runtime_import_module(js_runtime_handle *handle, const char *path) {
     if (!valid_runtime(handle)) {
         return NULL;
     }
@@ -466,12 +466,12 @@ value_handle *runtime_import_module(runtime_handle *handle, const char *path) {
     return new_value_handle(handle, mutable_namespace);
 }
 
-void value_destroy(value_handle *handle) {
+void js_value_destroy(js_value_handle *handle) {
     if (handle == NULL) {
         return;
     }
 
-    runtime_handle *runtime = handle->runtime;
+    js_runtime_handle *runtime = handle->runtime;
     if (valid_runtime(handle->runtime)) {
         JS_FreeValue(handle->runtime->context, handle->value);
     }
@@ -482,7 +482,7 @@ void value_destroy(value_handle *handle) {
     }
 }
 
-int64_t value_kind(value_handle *handle) {
+int64_t js_value_kind(js_value_handle *handle) {
     if (!valid_value(handle)) {
         return QUICKJS_VALUE_UNDEFINED;
     }
@@ -516,7 +516,7 @@ int64_t value_kind(value_handle *handle) {
     return QUICKJS_VALUE_UNDEFINED;
 }
 
-int64_t value_to_bool(value_handle *handle) {
+int64_t js_value_to_bool(js_value_handle *handle) {
     if (!valid_value(handle)) {
         return 0;
     }
@@ -529,7 +529,7 @@ int64_t value_to_bool(value_handle *handle) {
     return value ? 1 : 0;
 }
 
-double value_to_number(value_handle *handle) {
+double js_value_to_number(js_value_handle *handle) {
     if (!valid_value(handle)) {
         return 0.0;
     }
@@ -542,7 +542,7 @@ double value_to_number(value_handle *handle) {
     return value;
 }
 
-const char *value_to_string(value_handle *handle) {
+const char *js_value_to_string(js_value_handle *handle) {
     if (!valid_value(handle)) {
         return NULL;
     }
@@ -561,15 +561,15 @@ const char *value_to_string(value_handle *handle) {
     return copy;
 }
 
-void bridge_free_string(const char *value) {
+void js_bridge_free_string(const char *value) {
     free((void *)value);
 }
 
-int64_t value_is_array(value_handle *handle) {
+int64_t js_value_is_array(js_value_handle *handle) {
     return valid_value(handle) && JS_IsArray(handle->runtime->context, handle->value) ? 1 : 0;
 }
 
-int64_t value_array_length(value_handle *handle) {
+int64_t js_value_array_length(js_value_handle *handle) {
     if (!valid_value(handle)) {
         return -1;
     }
@@ -591,7 +591,7 @@ int64_t value_array_length(value_handle *handle) {
     return (int64_t)number;
 }
 
-value_handle *value_get_property(value_handle *handle, const char *name) {
+js_value_handle *js_value_get_property(js_value_handle *handle, const char *name) {
     if (!valid_value(handle)) {
         return NULL;
     }
@@ -610,7 +610,7 @@ value_handle *value_get_property(value_handle *handle, const char *name) {
     return new_value_handle(handle->runtime, value);
 }
 
-int64_t value_set_property(value_handle *handle, const char *name, value_handle *value) {
+int64_t js_value_set_property(js_value_handle *handle, const char *name, js_value_handle *value) {
     if (!valid_value(handle)) {
         return 1;
     }
@@ -637,7 +637,7 @@ int64_t value_set_property(value_handle *handle, const char *name, value_handle 
     return 0;
 }
 
-value_handle *value_get_index(value_handle *handle, int64_t index) {
+js_value_handle *js_value_get_index(js_value_handle *handle, int64_t index) {
     if (!valid_value(handle)) {
         return NULL;
     }
@@ -656,7 +656,7 @@ value_handle *value_get_index(value_handle *handle, int64_t index) {
     return new_value_handle(handle->runtime, value);
 }
 
-int64_t value_set_index(value_handle *handle, int64_t index, value_handle *value) {
+int64_t js_value_set_index(js_value_handle *handle, int64_t index, js_value_handle *value) {
     if (!valid_value(handle)) {
         return 1;
     }
@@ -683,7 +683,7 @@ int64_t value_set_index(value_handle *handle, int64_t index, value_handle *value
     return 0;
 }
 
-static int fill_argv(value_handle *owner, value_handle **args, int num_args, JSValueConst *argv) {
+static int fill_argv(js_value_handle *owner, js_value_handle **args, int num_args, JSValueConst *argv) {
     if (!valid_value(owner)) {
         return 1;
     }
@@ -707,10 +707,10 @@ static int fill_argv(value_handle *owner, value_handle **args, int num_args, JSV
     return 0;
 }
 
-value_handle *value_call(
-    value_handle *function,
-    value_handle *this_value,
-    value_handle **args,
+js_value_handle *js_value_call(
+    js_value_handle *function,
+    js_value_handle *this_value,
+    js_value_handle **args,
     int num_args) {
     if (!valid_value(function)) {
         return NULL;
@@ -744,9 +744,9 @@ value_handle *value_call(
     return new_value_handle(function->runtime, result);
 }
 
-value_handle *value_construct(
-    value_handle *constructor,
-    value_handle **args,
+js_value_handle *js_value_construct(
+    js_value_handle *constructor,
+    js_value_handle **args,
     int num_args) {
     if (!valid_value(constructor)) {
         return NULL;
