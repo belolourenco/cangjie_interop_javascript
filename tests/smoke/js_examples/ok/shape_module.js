@@ -1,6 +1,7 @@
 import * as std from 'std'
 
 export const moduleMarker = Math.random()
+export const moduleSentinel = 42.4242
 
 export function lookup(lat, long) {
   return {

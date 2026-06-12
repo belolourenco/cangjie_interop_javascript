@@ -32,11 +32,11 @@ func runLoadModulesSmoke(): Int64 {
         return 3
     }
 
-    let marker: Extern<JSRuntime> = JSRuntime.memberAccess(module, "moduleMarker")
-    let cachedModule: Extern<JSRuntime> = JSRuntime.getModule("js_examples/ok/shape_module.js")
-    let cachedMarker: Extern<JSRuntime> = JSRuntime.memberAccess(cachedModule, "moduleMarker")
-    if (JSRuntime.fromExtern<Float64>(marker) != JSRuntime.fromExtern<Float64>(cachedMarker)) {
-        println("module cache did not preserve evaluated namespace")
+    JSRuntime.memberUpdate(module, "moduleSentinel", 0.0)
+    let freshModule: Extern<JSRuntime> = JSRuntime.getModule("js_examples/ok/shape_module.js")
+    let freshSentinel: Extern<JSRuntime> = JSRuntime.memberAccess(freshModule, "moduleSentinel")
+    if (JSRuntime.fromExtern<Float64>(freshSentinel) != 42.4242) {
+        println("module import reused mutated namespace state")
         return 4
     }
 

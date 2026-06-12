@@ -17,17 +17,10 @@ enum {
     QUICKJS_VALUE_FUNCTION,
 };
 
-struct module_cache_entry {
-    char *path;
-    JSValue namespace_value;
-    struct module_cache_entry *next;
-};
-
 struct js_runtime_handle {
     JSRuntime *runtime;
     JSContext *context;
     char *last_error;
-    struct module_cache_entry *module_cache;
     size_t value_count;
     int destroying;
     int std_module_enabled;
@@ -89,28 +82,11 @@ static int valid_value(js_value_handle *value) {
     return value != NULL && valid_runtime(value->runtime);
 }
 
-static void free_module_cache(js_runtime_handle *runtime) {
-    if (runtime == NULL || runtime->context == NULL) {
-        return;
-    }
-
-    struct module_cache_entry *entry = runtime->module_cache;
-    while (entry != NULL) {
-        struct module_cache_entry *next = entry->next;
-        JS_FreeValue(runtime->context, entry->namespace_value);
-        free(entry->path);
-        free(entry);
-        entry = next;
-    }
-    runtime->module_cache = NULL;
-}
-
 static void free_runtime(js_runtime_handle *runtime) {
     if (runtime == NULL) {
         return;
     }
 
-    free_module_cache(runtime);
     if (runtime->context != NULL) {
         JS_FreeContext(runtime->context);
     }
@@ -392,12 +368,6 @@ js_value_handle *js_runtime_import_module(js_runtime_handle *handle, const char 
     }
 
     clear_error(handle);
-    for (struct module_cache_entry *entry = handle->module_cache; entry != NULL; entry = entry->next) {
-        if (strcmp(entry->path, path) == 0) {
-            return new_value_handle(handle, JS_DupValue(handle->context, entry->namespace_value));
-        }
-    }
-
     size_t source_length = 0;
     unsigned char *source = read_file(path, &source_length);
     if (source == NULL) {
@@ -443,25 +413,6 @@ js_value_handle *js_runtime_import_module(js_runtime_handle *handle, const char 
         capture_exception(handle);
         return NULL;
     }
-
-    struct module_cache_entry *entry = (struct module_cache_entry *)calloc(1, sizeof(struct module_cache_entry));
-    if (entry == NULL) {
-        JS_FreeValue(handle->context, mutable_namespace);
-        set_error(handle, "failed to allocate JavaScript module cache entry");
-        return NULL;
-    }
-
-    entry->path = copy_string(path);
-    if (entry->path == NULL) {
-        free(entry);
-        JS_FreeValue(handle->context, mutable_namespace);
-        set_error(handle, "failed to allocate JavaScript module path");
-        return NULL;
-    }
-
-    entry->namespace_value = JS_DupValue(handle->context, mutable_namespace);
-    entry->next = handle->module_cache;
-    handle->module_cache = entry;
 
     return new_value_handle(handle, mutable_namespace);
 }
