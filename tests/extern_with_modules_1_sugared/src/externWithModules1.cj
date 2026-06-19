@@ -22,17 +22,11 @@ public func testExternWithModules1() {
 
     // ---- my_javascript_function ----
 
-    // jsModule.my_javascript_function()
-    // ->
-    let my_javascript_function: Extern<JSRuntime> = jsModule.my_javascript_function
-    JSRuntime.functionCall(my_javascript_function, [])
+    jsModule.my_javascript_function()
 
     // ---- lookup ----
 
-    // let lookupResult: Extern<JSRuntime> = jsModule.lookup(42.4242, 1.111)
-    // ->
-    let lookup: Extern<JSRuntime> = jsModule.lookup
-    let lookupResult: Extern<JSRuntime> = JSRuntime.functionCall(lookup, [42.4242, 1.111])
+    let lookupResult: Extern<JSRuntime> = jsModule.lookup(42.4242, 1.111)
 
     // println("Lookup coordinates: (${(Float64)lookupResult.coordinates[0]}, ${(Float64)lookupResult.coordinates[1]})")
     println("Lookup coordinates: (${JSRuntime.fromExtern<Float64>(lookupResult.coordinates[0])}, ${JSRuntime.fromExtern<Float64>(lookupResult.coordinates[1])})")
@@ -56,31 +50,19 @@ public func testExternWithModules1() {
 
     // ---- Rectangle ----
 
-    // let rectangle: Extern<JSRuntime> = jsModule.Rectangle(10, 11)
-    // ->
-    let rectangleConstructor: Extern<JSRuntime> = jsModule.Rectangle
-    let rectangleObject: Extern<JSRuntime> = JSRuntime.functionCall(rectangleConstructor, [10, 11])
+    let rectangleObject: Extern<JSRuntime> = jsModule.Rectangle(10, 11)
 
-    // let rectangleWidth: Extern<JSRuntime> = rectangleObject.getWidth()
-    // ->
-    let rectangleWidthMethod: Extern<JSRuntime> = rectangleObject.getWidth
-    let rectangleWidthResult: Extern<JSRuntime> = JSRuntime.functionCall(rectangleWidthMethod, [])
+    let rectangleWidthResult: Extern<JSRuntime> = rectangleObject.getWidth()
     println("Rectangle width: ${JSRuntime.fromExtern<Float64>(rectangleWidthResult)}")
     assert(JSRuntime.fromExtern<Float64>(rectangleWidthResult) == 10.0, "Rectangle width should be 10.0")
 
-    // // let rectangleHeight: Extern<JSRuntime> = rectangleObject.getHeight()
-    // // ->
-    let rectangleHeightMethod: Extern<JSRuntime> = rectangleObject.getHeight
-    let rectangleHeightResult: Extern<JSRuntime> = JSRuntime.functionCall(rectangleHeightMethod, [])
+    let rectangleHeightResult: Extern<JSRuntime> = rectangleObject.getHeight()
     println("Rectangle height: ${JSRuntime.fromExtern<Float64>(rectangleHeightResult)}")
     assert(JSRuntime.fromExtern<Float64>(rectangleHeightResult) == 11.0, "Rectangle height should be 11.0")
 
     // ---- createRectangle ----
 
-    // // let rectangleObject2: Extern<JSRuntime> = jsModule.createRectangle()
-    // // ->
-    let createRectangleMethod: Extern<JSRuntime> = jsModule.createRectangle
-    let rectangleObject2: Extern<JSRuntime> = JSRuntime.functionCall(createRectangleMethod, [])
+    let rectangleObject2: Extern<JSRuntime> = jsModule.createRectangle()
 
     rectangleObject2.width = 42.0
 
@@ -96,20 +78,14 @@ public func testExternWithModules1() {
     println("Rectangle height: ${JSRuntime.fromExtern<Float64>(rectangleHeight2)}")
     assert(JSRuntime.fromExtern<Float64>(rectangleHeight2) == 13.0, "Rectangle height should be 13.0")
 
-    // let area = rectangleObject2.area()
-    // ->
-    let areaMethod: Extern<JSRuntime> = rectangleObject2.area
-    let areaResult: Extern<JSRuntime> = JSRuntime.functionCall(areaMethod, [])
+    let areaResult = rectangleObject2.area()
 
     // println("Rectangle area: ${(Float64)areaResult}")
     // ->
     println("Rectangle area: ${JSRuntime.fromExtern<Float64>(areaResult)}")
     assert(JSRuntime.fromExtern<Float64>(areaResult) == 546.0, "Rectangle area should be 546.0")
 
-    // let perimeter = rectangleObject2.perimeter()
-    // ->
-    let perimeterMethod: Extern<JSRuntime> = rectangleObject2.perimeter
-    let perimeterResult: Extern<JSRuntime> = JSRuntime.functionCall(perimeterMethod, [])
+    let perimeterResult = rectangleObject2.perimeter()
 
     // println("Rectangle perimeter: ${(Float64)perimeterResult}")
     // ->
@@ -241,7 +217,7 @@ public func testExternWithModules1() {
     // TODO: to be discussed!
     let e_object: Extern<JSRuntime> = JSRuntime.globalAccess("Object")
     let e_keys: Extern<JSRuntime> = e_object.keys
-    let mapKeys: Extern<JSRuntime> = JSRuntime.functionCall(e_keys, [globalStringNumberMap])
+    let mapKeys: Extern<JSRuntime> = e_keys(globalStringNumberMap)
     let mapKeysLength: Extern<JSRuntime> = mapKeys.length
 
     let mapKeysLengthInt64: Int64 = JSRuntime.fromExtern<Int64>(mapKeysLength)
@@ -255,7 +231,7 @@ public func testExternWithModules1() {
     assert(mapKeysElements[2] == "answer", "Global string number map key 2 should be 'answer'")
     
     let e_values: Extern<JSRuntime> = e_object.values
-    let mapValues: Extern<JSRuntime> = JSRuntime.functionCall(e_values, [globalStringNumberMap])
+    let mapValues: Extern<JSRuntime> = e_values(globalStringNumberMap)
     let mapValuesLength: Extern<JSRuntime> = mapValues.length
     let mapValuesLengthInt64: Int64 = JSRuntime.fromExtern<Int64>(mapValuesLength)
     println("Global string number map values length: ${mapValuesLengthInt64}")

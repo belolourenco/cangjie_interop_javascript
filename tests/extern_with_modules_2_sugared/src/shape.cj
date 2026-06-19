@@ -7,10 +7,7 @@ public class Point {
 
     public init(module: Extern<JSRuntime>, x: Float64, y: Float64) {
         println("Point constructor called with x: ${x}, y: ${y}")
-        // blob = module.Point(x, y)
-        // ->
-        let pointConstructor: Extern<JSRuntime> = module.Point
-        blob = JSRuntime.functionCall(pointConstructor, [x, y])
+        blob = module.Point(x, y)
     }
 
     // Shallow copy constructor!
@@ -22,10 +19,7 @@ public class Point {
     // Deep copy constructor!
     public init(module: Extern<JSRuntime>, other: Point) {
         println("Point copy constructor called with x: ${other.x}, y: ${other.y}")
-        // blob = module.Point(other.x, other.y)
-        // ->
-        let pointConstructor: Extern<JSRuntime> = module.Point
-        blob = JSRuntime.functionCall(pointConstructor, [other.x, other.y])
+        blob = module.Point(other.x, other.y)
     }
 
     public mut prop x: Float64 {
@@ -52,10 +46,7 @@ public class Point {
     }
 
     public func distanceTo(other: Point): Float64 {
-        // blob.distanceTo(other.blob)
-        // ->
-        let distanceToMethod: Extern<JSRuntime> = blob.distanceTo
-        let result: Extern<JSRuntime> = JSRuntime.functionCall(distanceToMethod, [other.blob])
+        let result: Extern<JSRuntime> = blob.distanceTo(other.blob)
         JSRuntime.fromExtern<Float64>(result)
     }
 }
@@ -65,26 +56,17 @@ public interface Shape {
     func getBlob(): Extern<JSRuntime>
 
     func name(): String {
-        // getBlob().name()
-        // ->
-        let nameMethod: Extern<JSRuntime> = getBlob().name
-        let result: Extern<JSRuntime> = JSRuntime.functionCall(nameMethod, [])
+        let result: Extern<JSRuntime> = getBlob().name()
         JSRuntime.fromExtern<String>(result)
     }
 
     func area(): Float64 {
-        // getBlob().area()
-        // ->
-        let areaMethod: Extern<JSRuntime> = getBlob().area
-        let result: Extern<JSRuntime> = JSRuntime.functionCall(areaMethod, [])
+        let result: Extern<JSRuntime> = getBlob().area()
         JSRuntime.fromExtern<Float64>(result)
     }
 
     func perimeter(): Float64 {
-        // getBlob().perimeter()
-        // ->
-        let perimeterMethod: Extern<JSRuntime> = getBlob().perimeter
-        let result: Extern<JSRuntime> = JSRuntime.functionCall(perimeterMethod, [])
+        let result: Extern<JSRuntime> = getBlob().perimeter()
         JSRuntime.fromExtern<Float64>(result)
     }
 }
@@ -94,10 +76,7 @@ public class Rectangle <: Shape {
 
     public init(module: Extern<JSRuntime>, topLeft: Point, bottomRight: Point) {
         println("Rectangle constructor called with topLeft: ${topLeft.x}, ${topLeft.y} and bottomRight: ${bottomRight.x}, ${bottomRight.y}")
-        // blob = module.Rectangle(topLeft.blob, bottomRight.blob)
-        // ->
-        let rectangleConstructor: Extern<JSRuntime> = module.Rectangle
-        blob = JSRuntime.functionCall(rectangleConstructor, [topLeft.blob, bottomRight.blob])
+        blob = module.Rectangle(topLeft.blob, bottomRight.blob)
     }
 
     public init(extern: Extern<JSRuntime>) {
@@ -158,10 +137,7 @@ public class Circle <: Shape {
     public let blob: Extern<JSRuntime>
 
     public init(module: Extern<JSRuntime>, center: Point, radius: Float64) {
-        // blob = module.Circle(center.blob, radius)
-        // ->
-        let circleConstructor: Extern<JSRuntime> = module.Circle
-        blob = JSRuntime.functionCall(circleConstructor, [center.blob, radius])
+        blob = module.Circle(center.blob, radius)
     }
 
     public init(extern: Extern<JSRuntime>) {
@@ -198,10 +174,7 @@ public class Triangle <: Shape {
     public let blob: Extern<JSRuntime>
 
     public init(module: Extern<JSRuntime>, a: Point, b: Point, c: Point) {
-        // blob = module.Triangle(a.blob, b.blob, c.blob)
-        // ->
-        let triangleConstructor: Extern<JSRuntime> = module.Triangle
-        blob = JSRuntime.functionCall(triangleConstructor, [a.blob, b.blob, c.blob])
+        blob = module.Triangle(a.blob, b.blob, c.blob)
     }
 
     public init(extern: Extern<JSRuntime>) {
