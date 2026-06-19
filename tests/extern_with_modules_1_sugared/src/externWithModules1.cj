@@ -277,6 +277,6 @@ func convertArrayToArrayList<T>(array: Extern<JSRuntime>): ArrayList<T> {
         // TODO
         // JSRuntime.fromExtern<T>(array[i])
         // ->
-        JSRuntime.fromExtern<T>(JSRuntime.indexAccess(array, i))
+        JSRuntime.fromExtern<T>(array[i])
     })
 }
