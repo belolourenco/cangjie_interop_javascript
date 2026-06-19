@@ -22,8 +22,11 @@ NATIVE_LIB := $(NATIVE_BUILD_DIR)/libquickjs_bridge.a
 
 SMOKE_DIR := tests/smoke
 EXTERN_PRIMITIVE_TYPES_DIR := tests/extern_primitive_types
+EXTERN_PRIMITIVE_TYPES_SUGARED_DIR := tests/extern_primitive_types_sugared
 EXTERN_WITH_MODULES_1_DIR := tests/extern_with_modules_1
+EXTERN_WITH_MODULES_1_SUGARED_DIR := tests/extern_with_modules_1_sugared
 EXTERN_WITH_MODULES_2_DIR := tests/extern_with_modules_2
+EXTERN_WITH_MODULES_2_SUGARED_DIR := tests/extern_with_modules_2_sugared
 
 COMMON_CFLAGS := -std=c11 -O2 -g -Wall -Wextra -Wno-unused-parameter
 COMMON_CFLAGS += -Wno-sign-compare -Wno-missing-field-initializers
@@ -34,7 +37,7 @@ ifeq ($(shell uname -s),Darwin)
 COMMON_CFLAGS += -mmacosx-version-min=12.0
 endif
 
-.PHONY: all native cangjie build test smoke-build smoke-test extern-primitive-types-build extern-primitive-types-test extern-with-modules-1-build extern-with-modules-1-test extern-with-modules-2-build extern-with-modules-2-test clean
+.PHONY: all native cangjie build test smoke-build smoke-test extern-primitive-types-build extern-primitive-types-test extern-primitive-types-sugared-build extern-primitive-types-sugared-test extern-with-modules-1-build extern-with-modules-1-test extern-with-modules-1-sugared-build extern-with-modules-1-sugared-test extern-with-modules-2-build extern-with-modules-2-test extern-with-modules-2-sugared-build extern-with-modules-2-sugared-test clean
 
 all: test
 
@@ -48,8 +51,11 @@ build: cangjie
 test: build
 	$(MAKE) smoke-test
 	$(MAKE) extern-primitive-types-test
+	$(MAKE) extern-primitive-types-sugared-test
 	$(MAKE) extern-with-modules-1-test
+	$(MAKE) extern-with-modules-1-sugared-test
 	$(MAKE) extern-with-modules-2-test
+	$(MAKE) extern-with-modules-2-sugared-test
 
 smoke-build: native
 	cd $(SMOKE_DIR) && $(CJPM) build
@@ -63,11 +69,23 @@ extern-primitive-types-build: native
 extern-primitive-types-test: extern-primitive-types-build
 	cd $(EXTERN_PRIMITIVE_TYPES_DIR) && target/release/bin/main
 
+extern-primitive-types-sugared-build: native
+	cd $(EXTERN_PRIMITIVE_TYPES_SUGARED_DIR) && $(CJPM) build
+
+extern-primitive-types-sugared-test: extern-primitive-types-sugared-build
+	cd $(EXTERN_PRIMITIVE_TYPES_SUGARED_DIR) && target/release/bin/main
+
 extern-with-modules-1-build: native
 	cd $(EXTERN_WITH_MODULES_1_DIR) && $(CJPM) build
 
 extern-with-modules-1-test: extern-with-modules-1-build
 	cd $(EXTERN_WITH_MODULES_1_DIR) && target/release/bin/main
+
+extern-with-modules-1-sugared-build: native
+	cd $(EXTERN_WITH_MODULES_1_SUGARED_DIR) && $(CJPM) build
+
+extern-with-modules-1-sugared-test: extern-with-modules-1-sugared-build
+	cd $(EXTERN_WITH_MODULES_1_SUGARED_DIR) && target/release/bin/main
 
 extern-with-modules-2-build: native
 	cd $(EXTERN_WITH_MODULES_2_DIR) && $(CJPM) build
@@ -75,12 +93,21 @@ extern-with-modules-2-build: native
 extern-with-modules-2-test: extern-with-modules-2-build
 	cd $(EXTERN_WITH_MODULES_2_DIR) && target/release/bin/main
 
+extern-with-modules-2-sugared-build: native
+	cd $(EXTERN_WITH_MODULES_2_SUGARED_DIR) && $(CJPM) build
+
+extern-with-modules-2-sugared-test: extern-with-modules-2-sugared-build
+	cd $(EXTERN_WITH_MODULES_2_SUGARED_DIR) && target/release/bin/main
+
 clean:
 	rm -rf $(BUILD_DIR) target
 	rm -rf $(SMOKE_DIR)/target $(SMOKE_DIR)/build-script-cache
 	rm -rf $(EXTERN_PRIMITIVE_TYPES_DIR)/target $(EXTERN_PRIMITIVE_TYPES_DIR)/build-script-cache
+	rm -rf $(EXTERN_PRIMITIVE_TYPES_SUGARED_DIR)/target $(EXTERN_PRIMITIVE_TYPES_SUGARED_DIR)/build-script-cache
 	rm -rf $(EXTERN_WITH_MODULES_1_DIR)/target $(EXTERN_WITH_MODULES_1_DIR)/build-script-cache
+	rm -rf $(EXTERN_WITH_MODULES_1_SUGARED_DIR)/target $(EXTERN_WITH_MODULES_1_SUGARED_DIR)/build-script-cache
 	rm -rf $(EXTERN_WITH_MODULES_2_DIR)/target $(EXTERN_WITH_MODULES_2_DIR)/build-script-cache
+	rm -rf $(EXTERN_WITH_MODULES_2_SUGARED_DIR)/target $(EXTERN_WITH_MODULES_2_SUGARED_DIR)/build-script-cache
 
 $(NATIVE_LIB): $(NATIVE_OBJECTS)
 	mkdir -p $(@D)
