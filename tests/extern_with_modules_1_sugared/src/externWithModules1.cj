@@ -28,37 +28,31 @@ public func testExternWithModules1() {
 
     let lookupResult: Extern<JSRuntime> = jsModule.lookup(42.4242, 1.111)
 
-    // println("Lookup coordinates: (${(Float64)lookupResult.coordinates[0]}, ${(Float64)lookupResult.coordinates[1]})")
-    println("Lookup coordinates: (${JSRuntime.fromExtern<Float64>(lookupResult.coordinates[0])}, ${JSRuntime.fromExtern<Float64>(lookupResult.coordinates[1])})")
-    assert(JSRuntime.fromExtern<Float64>(lookupResult.coordinates[0]) == 1.111000, "Lookup coordinates[0] should be 1.111000")
-    assert(JSRuntime.fromExtern<Float64>(lookupResult.coordinates[1]) == 42.424200, "Lookup coordinates[1] should be 42.424200")
+    println("Lookup coordinates: (${(Float64)lookupResult.coordinates[0]}, ${(Float64)lookupResult.coordinates[1]})")
+    assert((Float64)lookupResult.coordinates[0] == 1.111000, "Lookup coordinates[0] should be 1.111000")
+    assert((Float64)lookupResult.coordinates[1] == 42.424200, "Lookup coordinates[1] should be 42.424200")
 
-    // println("Lookup result: ${(String)lookupResult.name}")
-    // ->
-    println("Lookup result: ${JSRuntime.fromExtern<String>(lookupResult.name)}")
-    assert(JSRuntime.fromExtern<String>(lookupResult.name) == "Space Needle", "Lookup name should be 'My Location'")
 
-    // println("Lookup result: ${(String)lookupResult.city}")
-    // ->
-    println("Lookup result: ${JSRuntime.fromExtern<String>(lookupResult.city)}")
-    assert(JSRuntime.fromExtern<String>(lookupResult.city) == "Seattle", "Lookup city should be 'Seattle'")
+    println("Lookup result: ${(String)lookupResult.name}")
+    assert((String)lookupResult.name == "Space Needle", "Lookup name should be 'My Location'")
 
-    // println("Lookup result: ${(String)lookupResult.category}")
-    // ->
-    println("Lookup result: ${JSRuntime.fromExtern<String>(lookupResult.category)}")
-    assert(JSRuntime.fromExtern<String>(lookupResult.category) == "Landmark", "Lookup category should be 'Landmark'")
+    println("Lookup result: ${(String)lookupResult.city}")
+    assert((String)lookupResult.city == "Seattle", "Lookup city should be 'Seattle'")
+
+    println("Lookup result: ${(String)lookupResult.category}")
+    assert((String)lookupResult.category == "Landmark", "Lookup category should be 'Landmark'")
 
     // ---- Rectangle ----
 
     let rectangleObject: Extern<JSRuntime> = jsModule.Rectangle(10, 11)
 
     let rectangleWidthResult: Extern<JSRuntime> = rectangleObject.getWidth()
-    println("Rectangle width: ${JSRuntime.fromExtern<Float64>(rectangleWidthResult)}")
-    assert(JSRuntime.fromExtern<Float64>(rectangleWidthResult) == 10.0, "Rectangle width should be 10.0")
+    println("Rectangle width: ${(Float64)rectangleWidthResult}")
+    assert((Float64)rectangleWidthResult == 10.0, "Rectangle width should be 10.0")
 
     let rectangleHeightResult: Extern<JSRuntime> = rectangleObject.getHeight()
-    println("Rectangle height: ${JSRuntime.fromExtern<Float64>(rectangleHeightResult)}")
-    assert(JSRuntime.fromExtern<Float64>(rectangleHeightResult) == 11.0, "Rectangle height should be 11.0")
+    println("Rectangle height: ${(Float64)rectangleHeightResult}")
+    assert((Float64)rectangleHeightResult == 11.0, "Rectangle height should be 11.0")
 
     // ---- createRectangle ----
 
@@ -68,43 +62,37 @@ public func testExternWithModules1() {
 
     let rectangleWidth2: Extern<JSRuntime> = rectangleObject2.width
     
-    // println("Rectangle width: ${(Float64)rectangleWidth2}")
-    println("Rectangle width: ${JSRuntime.fromExtern<Float64>(rectangleWidth2)}")
-    assert(JSRuntime.fromExtern<Float64>(rectangleWidth2) == 42.0, "Rectangle width should be 42.0")
+    println("Rectangle width: ${(Float64)rectangleWidth2}")
+    assert((Float64)rectangleWidth2 == 42.0, "Rectangle width should be 42.0")
 
     let rectangleHeight2: Extern<JSRuntime> = rectangleObject2.height
 
-    // println("Rectangle height: ${(Float64)rectangleHeight2}")
-    println("Rectangle height: ${JSRuntime.fromExtern<Float64>(rectangleHeight2)}")
-    assert(JSRuntime.fromExtern<Float64>(rectangleHeight2) == 13.0, "Rectangle height should be 13.0")
+    println("Rectangle height: ${(Float64)rectangleHeight2}")
+    assert((Float64)rectangleHeight2 == 13.0, "Rectangle height should be 13.0")
 
     let areaResult = rectangleObject2.area()
 
-    // println("Rectangle area: ${(Float64)areaResult}")
-    // ->
-    println("Rectangle area: ${JSRuntime.fromExtern<Float64>(areaResult)}")
-    assert(JSRuntime.fromExtern<Float64>(areaResult) == 546.0, "Rectangle area should be 546.0")
+    println("Rectangle area: ${(Float64)areaResult}")
+    assert((Float64)areaResult == 546.0, "Rectangle area should be 546.0")
 
     let perimeterResult = rectangleObject2.perimeter()
 
-    // println("Rectangle perimeter: ${(Float64)perimeterResult}")
-    // ->
-    println("Rectangle perimeter: ${JSRuntime.fromExtern<Float64>(perimeterResult)}")
-    assert(JSRuntime.fromExtern<Float64>(perimeterResult) == 110.0, "Rectangle perimeter should be 110.0")
+    println("Rectangle perimeter: ${(Float64)perimeterResult}")
+    assert((Float64)perimeterResult == 110.0, "Rectangle perimeter should be 110.0")
 
     // ---- accessing global variables ----
 
     let globalBoolean: Extern<JSRuntime> = jsModule.globalBoolean
-    println("Global boolean: ${JSRuntime.fromExtern<Bool>(globalBoolean)}")
-    assert(JSRuntime.fromExtern<Bool>(globalBoolean) == true, "Global boolean should be true")
+    println("Global boolean: ${(Bool)globalBoolean}")
+    assert((Bool)globalBoolean == true, "Global boolean should be true")
 
     let globalNumber: Extern<JSRuntime> = jsModule.globalNumber
-    println("Global number: ${JSRuntime.fromExtern<Float64>(globalNumber)}")
-    assert(JSRuntime.fromExtern<Float64>(globalNumber) == 42.4242, "Global number should be 42.4242")
+    println("Global number: ${(Float64)globalNumber}")
+    assert((Float64)globalNumber == 42.4242, "Global number should be 42.4242")
 
     let globalString: Extern<JSRuntime> = jsModule.globalString
-    println("Global string: ${JSRuntime.fromExtern<String>(globalString)}")
-    assert(JSRuntime.fromExtern<String>(globalString) == "hello from JavaScript", "Global string should be 'hello from JavaScript'")
+    println("Global string: ${(String)globalString}")
+    assert((String)globalString == "hello from JavaScript", "Global string should be 'hello from JavaScript'")
 
     // ---- array access and assignment ----
 
@@ -140,7 +128,7 @@ public func testExternWithModules1() {
 
     try {
         let x = globalArray[3]
-        println("Global array element 3: ${JSRuntime.fromExtern<Int64>(x)}")
+        println("Global array element 3: ${(Int64)x}")
         throw AssertionFailedException("Global array element 3 should be out of range")
     } catch (e: ExternDynamicException) {
         println("Expected exception: ${e.message}")
@@ -158,12 +146,12 @@ public func testExternWithModules1() {
     let globalObject: Extern<JSRuntime> = jsModule.globalObject
 
     let globalObjectName: Extern<JSRuntime> = globalObject.name
-    println("Global object name: ${JSRuntime.fromExtern<String>(globalObjectName)}")
-    assert(JSRuntime.fromExtern<String>(globalObjectName) == "global object", "Global object name should be 'global object'")
+    println("Global object name: ${(String)globalObjectName}")
+    assert((String)globalObjectName == "global object", "Global object name should be 'global object'")
 
     let globalObjectEnabled: Extern<JSRuntime> = globalObject.enabled
-    println("Global object enabled: ${JSRuntime.fromExtern<Bool>(globalObjectEnabled)}")
-    assert(JSRuntime.fromExtern<Bool>(globalObjectEnabled) == true, "Global object enabled should be true")
+    println("Global object enabled: ${(Bool)globalObjectEnabled}")
+    assert((Bool)globalObjectEnabled == true, "Global object enabled should be true")
 
     let globalObjectValues: Extern<JSRuntime> = globalObject.values
     let globalObjectValuesElements: ArrayList<Int64> = convertArrayToArrayList(globalObjectValues)
@@ -174,13 +162,13 @@ public func testExternWithModules1() {
 
     globalObject.name = "global object 2"
     let globalObjectName2: Extern<JSRuntime> = globalObject.name
-    println("Global object name: ${JSRuntime.fromExtern<String>(globalObjectName2)}")
-    assert(JSRuntime.fromExtern<String>(globalObjectName2) == "global object 2", "Global object name should be 'global object 2'")
+    println("Global object name: ${(String)globalObjectName2}")
+    assert((String)globalObjectName2 == "global object 2", "Global object name should be 'global object 2'")
 
     globalObject.enabled = false
     let globalObjectEnabled2: Extern<JSRuntime> = globalObject.enabled
-    println("Global object enabled: ${JSRuntime.fromExtern<Bool>(globalObjectEnabled2)}")
-    assert(JSRuntime.fromExtern<Bool>(globalObjectEnabled2) == false, "Global object enabled should be false")
+    println("Global object enabled: ${(Bool)globalObjectEnabled2}")
+    assert((Bool)globalObjectEnabled2 == false, "Global object enabled should be false")
 
     let globalObjectValues2: Extern<JSRuntime> = globalObject.values
     globalObject.values[1] = 42
@@ -195,23 +183,23 @@ public func testExternWithModules1() {
     jsModule.globalNumber = 0.0
 
     let globalNumber2: Extern<JSRuntime> = jsModule.globalNumber
-    println("Global number: ${JSRuntime.fromExtern<Float64>(globalNumber2)}")
-    assert(JSRuntime.fromExtern<Float64>(globalNumber2) == 0.0, "Global number should be 0.0")
+    println("Global number: ${(Float64)globalNumber2}")
+    assert((Float64)globalNumber2 == 0.0, "Global number should be 0.0")
 
     let mystring = "hello from JavaScript but much longer than the original string but should be the same string because it is the same string object in JavaScript but with a different reference in JavaScript and llm is very good at generating the same string object in JavaScript mor text is needed to make it different"
     jsModule.globalString = mystring
     let globalString2: Extern<JSRuntime> = jsModule.globalString
-    println("Global string: ${JSRuntime.fromExtern<String>(globalString2)}")
-    assert(JSRuntime.fromExtern<String>(globalString2) == mystring, "Global string should be '${mystring}'")
+    println("Global string: ${(String)globalString2}")
+    assert((String)globalString2 == mystring, "Global string should be '${mystring}'")
 
 
     globalObject.name = "global object 3"
     let globalObjectName3: Extern<JSRuntime> = globalObject.name
-    println("Global object name: ${JSRuntime.fromExtern<String>(globalObjectName3)}")
-    assert(JSRuntime.fromExtern<String>(globalObjectName3) == "global object 3", "Global object name should be 'global object 3'")
+    println("Global object name: ${(String)globalObjectName3}")
+    assert((String)globalObjectName3 == "global object 3", "Global object name should be 'global object 3'")
 
-    println("Global object name: ${JSRuntime.fromExtern<String>(globalObjectName2)}")
-    assert(JSRuntime.fromExtern<String>(globalObjectName2) == "global object 2", "Global object name should be 'global object 2'")
+    println("Global object name: ${(String)globalObjectName2}")
+    assert((String)globalObjectName2 == "global object 2", "Global object name should be 'global object 2'")
 
     let globalStringNumberMap: Extern<JSRuntime> = jsModule.globalStringNumberMap
     // TODO: to be discussed!
@@ -220,7 +208,7 @@ public func testExternWithModules1() {
     let mapKeys: Extern<JSRuntime> = e_keys(globalStringNumberMap)
     let mapKeysLength: Extern<JSRuntime> = mapKeys.length
 
-    let mapKeysLengthInt64: Int64 = JSRuntime.fromExtern<Int64>(mapKeysLength)
+    let mapKeysLengthInt64: Int64 = (Int64)mapKeysLength
     println("Global string number map length: ${mapKeysLengthInt64}")
     assert(mapKeysLengthInt64 == 3, "Global string number map length should be 3")
 
@@ -233,7 +221,7 @@ public func testExternWithModules1() {
     let e_values: Extern<JSRuntime> = e_object.values
     let mapValues: Extern<JSRuntime> = e_values(globalStringNumberMap)
     let mapValuesLength: Extern<JSRuntime> = mapValues.length
-    let mapValuesLengthInt64: Int64 = JSRuntime.fromExtern<Int64>(mapValuesLength)
+    let mapValuesLengthInt64: Int64 = (Int64)mapValuesLength
     println("Global string number map values length: ${mapValuesLengthInt64}")
     assert(mapValuesLengthInt64 == 3, "Global string number map values length should be 3")
 
@@ -245,38 +233,35 @@ public func testExternWithModules1() {
 
     globalStringNumberMap.one = -1
     let globalStringNumberMapOne: Extern<JSRuntime> = globalStringNumberMap.one
-    println("Global string number map one: ${JSRuntime.fromExtern<Int64>(globalStringNumberMapOne)}")
-    assert(JSRuntime.fromExtern<Int64>(globalStringNumberMapOne) == -1, "Global string number map one should be -1")
+    println("Global string number map one: ${(Int64)globalStringNumberMapOne}")
+    assert((Int64)globalStringNumberMapOne == -1, "Global string number map one should be -1")
 
     globalStringNumberMap["two"] = -2
     let globalStringNumberMapTwo: Extern<JSRuntime> = globalStringNumberMap["two"]
-    println("Global string number map two: ${JSRuntime.fromExtern<Int64>(globalStringNumberMapTwo)}")
-    assert(JSRuntime.fromExtern<Int64>(globalStringNumberMapTwo) == -2, "Global string number map two should be -2")
+    println("Global string number map two: ${(Int64)globalStringNumberMapTwo}")
+    assert((Int64)globalStringNumberMapTwo == -2, "Global string number map two should be -2")
     let globalStringNumberMapTwo_field: Extern<JSRuntime> = globalStringNumberMap.two
-    println("Global string number map two: ${JSRuntime.fromExtern<Int64>(globalStringNumberMapTwo_field)}")
-    assert(JSRuntime.fromExtern<Int64>(globalStringNumberMapTwo_field) == -2, "Global string number map two should be -2")
+    println("Global string number map two: ${(Int64)globalStringNumberMapTwo_field}")
+    assert((Int64)globalStringNumberMapTwo_field == -2, "Global string number map two should be -2")
 
     let globalStringNumberMapOne_again: Extern<JSRuntime> = jsModule.globalStringNumberMap["one"]
-    println("Global string number map one: ${JSRuntime.fromExtern<Int64>(globalStringNumberMapOne_again)}")
-    assert(JSRuntime.fromExtern<Int64>(globalStringNumberMapOne_again) == -1, "Global string number map one should be -1")
+    println("Global string number map one: ${(Int64)globalStringNumberMapOne_again}")
+    assert((Int64)globalStringNumberMapOne_again == -1, "Global string number map one should be -1")
 
     let globalStringNumberMapTwo_again: Extern<JSRuntime> = jsModule.globalStringNumberMap["two"]
-    println("Global string number map two: ${JSRuntime.fromExtern<Int64>(globalStringNumberMapTwo_again)}")
-    assert(JSRuntime.fromExtern<Int64>(globalStringNumberMapTwo_again) == -2, "Global string number map two should be -2")
+    println("Global string number map two: ${(Int64)globalStringNumberMapTwo_again}")
+    assert((Int64)globalStringNumberMapTwo_again == -2, "Global string number map two should be -2")
 
     let globalStringNumberMapAnswer_again: Extern<JSRuntime> = jsModule.globalStringNumberMap.answer
-    println("Global string number map answer: ${JSRuntime.fromExtern<Int64>(globalStringNumberMapAnswer_again)}")
-    assert(JSRuntime.fromExtern<Int64>(globalStringNumberMapAnswer_again) == 42, "Global string number map answer should be 42")
+    println("Global string number map answer: ${(Int64)globalStringNumberMapAnswer_again}")
+    assert((Int64)globalStringNumberMapAnswer_again == 42, "Global string number map answer should be 42")
     
 }
 
 func convertArrayToArrayList<T>(array: Extern<JSRuntime>): ArrayList<T> {
     let arrayLength: Extern<JSRuntime> = array.length
-    let arrayLengthInt64: Int64 = JSRuntime.fromExtern<Int64>(arrayLength)
+    let arrayLengthInt64: Int64 = (Int64)arrayLength
     ArrayList<T>(arrayLengthInt64, { i: Int64 =>
-        // TODO
-        // JSRuntime.fromExtern<T>(array[i])
-        // ->
-        JSRuntime.fromExtern<T>(array[i])
+        (T)array[i]
     })
 }
