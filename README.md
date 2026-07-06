@@ -16,21 +16,19 @@ Install and verify these tools before running the tests.
 
 ### Cangjie Toolchain
 
-Required commands:
-
-- `cjc`
-- `cjpm`
-
-The project currently targets the Cangjie version declared in `cjpm.toml`:
+This project also depends on the Cangjie ecosystem available at:
 
 ```text
-cjc-version = "1.0.5"
+https://github.com/CJPLUK/cangjie_sdk/tree/feature_extern_runtime
 ```
 
-Load the Cangjie SDK environment before building:
+You must build the Cangjie ecosystem and load the Cangjie SDK environment before building:
 
 ```sh
-source /path/to/cangjie/envsetup.sh
+git clone https://github.com/CJPLUK/cangjie_sdk.git -b feature_extern_runtime
+cd cangjie_sdk
+bash build_scripts/macos/all.sh
+source software/cangjie/envsetup.sh
 ```
 
 Verify:
@@ -67,20 +65,6 @@ command -v ranlib
 
 Apple's `ar` and `ranlib` do not support `--version` or `-v` as version checks, even when the tools are installed. Use `command -v ar` and `command -v ranlib`.
 
-### Source Control
-
-Required command:
-
-- `git`
-
-Verify:
-
-```sh
-git --version
-```
-
-`cjpm` uses `git` to fetch the `extern` package dependency.
-
 ## Project Dependencies
 
 ### QuickJS
@@ -101,16 +85,6 @@ test -f native/quickjs/quickjs-libc.h
 test -f native/quickjs/VERSION
 ```
 
-### Cangjie `extern` Package
-
-The project depends on:
-
-```text
-https://github.com/belolourenco/cangjie_extern.git
-```
-
-This dependency is declared in the root `cjpm.toml` and in each test package's `cjpm.toml`. A network connection is required the first time `cjpm` fetches it.
-
 ## Build And Test From A Fresh Checkout
 
 From the project root:
@@ -128,10 +102,13 @@ make test
 - builds the root Cangjie library package;
 - builds and runs `tests/smoke`;
 - builds and runs `tests/extern_primitive_types`;
+- builds and runs `tests/extern_primitive_types_sugared`;
 - builds and runs `tests/extern_with_modules_1`;
-- builds and runs `tests/extern_with_modules_2`.
+- builds and runs `tests/extern_with_modules_1_sugared`;
+- builds and runs `tests/extern_with_modules_2`;
+- builds and runs `tests/extern_with_modules_2_sugared`.
 
-The test binaries need the Cangjie runtime library on `DYLD_LIBRARY_PATH`. The Makefile sets this automatically for test execution by locating `libcangjie-runtime.dylib` under `$CANGJIE_HOME/runtime/lib`.
+The test packages use `--set-runtime-rpath` so the generated test binaries can locate the Cangjie runtime library from the loaded Cangjie SDK environment.
 
 ## Expected Result
 
